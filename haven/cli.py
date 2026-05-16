@@ -263,7 +263,8 @@ def lav_jinja_env():
         return str(tekst).splitlines()
 
     import markdown as _md
-    env.filters["md"]             = lambda t: _md.markdown(str(t))
+    _md_exts = ["fenced_code"]
+    env.filters["md"]             = lambda t: _md.markdown(str(t), extensions=_md_exts)
     env.filters["aktiv_afgrøde"]  = aktiv_afgrøde
     env.filters["kalender_celle"] = kalender_celle
     env.filters["dato_fmt"]       = dato_fmt
