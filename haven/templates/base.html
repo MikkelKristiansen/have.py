@@ -49,6 +49,7 @@
             {{ å }}{% if å == aktivt_år | default(0) %} ✦{% endif %}
           </a>
           {% endfor %}
+          <a href="{{ op_sti | default('../') }}arkiv-samlet.html" class="dropdown-item{% if aktiv_side | default('') == 'arkiv-samlet' %} aktiv{% endif %}">📚 Samlet arkiv</a>
         </div>
       </div>
       {% endif %}

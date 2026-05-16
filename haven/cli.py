@@ -619,6 +619,66 @@ def generer_planter_oversigt(alle_planter, yaml_filer, planter_sti, env, nav_con
         print(f"ℹ️  Planterside uændret: {planter_sti}")
 
 
+def generer_samlet_arkiv(år_liste, arkiv_samlet_sti, env, plante_db=None, nav_context=None):
+    """Generer arkiv-samlet.html — alle bede med planter på tværs af alle år."""
+    data_rod = PROJECT_ROOT / "data"
+    plante_db = plante_db or {}
+
+    # Aggreger: {html_navn: {titel, ikon, bede: {bed_id: {navn, år: {år: [planter]}}}}}
+    områder: dict = {}
+
+    for år in sorted(år_liste):
+        år_mappe = data_rod / str(år)
+        if not år_mappe.is_dir():
+            continue
+        for yaml_fil in sorted(år_mappe.glob("*.yaml")):
+            if yaml_fil.name in ("almanak.yaml", "entries.yaml", "planter.yaml"):
+                continue
+            data = load_yaml(str(yaml_fil))
+            meta = data.get("meta", {})
+            html_navn = meta.get("html_navn")
+            if not html_navn:
+                continue
+            titel = meta.get("titel", html_navn)
+            ikon = meta.get("ikon", "🌿")
+
+            if html_navn not in områder:
+                områder[html_navn] = {"titel": titel, "ikon": ikon, "bede": {}}
+
+            for bed in data.get("bede", []):
+                bed_id = bed.get("id", "")
+                bed_navn = bed.get("navn", bed_id)
+
+                if bed_id not in områder[html_navn]["bede"]:
+                    områder[html_navn]["bede"][bed_id] = {"navn": bed_navn, "år": {}}
+
+                seen: set = set()
+                planter_i_år: list = []
+                for zone in bed.get("zoner", []):
+                    for afgrøde in zone.get("afgrøder", []):
+                        plante_id = afgrøde.get("plante_id", "")
+                        plante = plante_db.get(plante_id, {})
+                        navn = plante.get("navn", plante_id)
+                        sort = afgrøde.get("sort") or plante.get("sort", "")
+                        key = (navn, sort)
+                        if key not in seen:
+                            seen.add(key)
+                            planter_i_år.append({"navn": navn, "sort": sort})
+
+                if planter_i_år:
+                    områder[html_navn]["bede"][bed_id]["år"][år] = planter_i_år
+
+    skabelon = env.get_template("arkiv_samlet.html")
+    output = skabelon.render(
+        titel="Samlet arkiv",
+        år=datetime.date.today().year,
+        områder=områder,
+        **(nav_context or {}),
+    )
+    if skriv_hvis_ændret(str(arkiv_samlet_sti), output):
+        print(f"✅ Samlet arkiv genereret: {arkiv_samlet_sti}")
+    else:
+        print(f"ℹ️  Samlet arkiv uændret: {arkiv_samlet_sti}")
 
 
 INIT_YAML = """# Højbedshaven {år}
@@ -2297,6 +2357,12 @@ def generer_alle(yaml_filer=None) -> list:
     planter_sti = os.path.join(str(OUT_MAPPE.parent), "planter.html")
     generer_planter_oversigt(alle_planter, yaml_filer, planter_sti, env, nav_context=nav_ctx("planter", op_sti="", jaar_sti=f"{AKTIVT_ÅR}/"))
     upload_filer.append((planter_sti, "planter.html"))
+
+    arkiv_samlet_sti = OUT_MAPPE.parent / "arkiv-samlet.html"
+    generer_samlet_arkiv(år_liste, arkiv_samlet_sti, env, plante_db=PLANTE_DB,
+                         nav_context=nav_ctx("arkiv-samlet", op_sti="", jaar_sti=f"{AKTIVT_ÅR}/"))
+    upload_filer.append((str(arkiv_samlet_sti), "arkiv-samlet.html"))
+
     for _gl_år in år_liste:
         _stale = OUT_MAPPE.parent / str(_gl_år) / "planter.html"
         if _stale.exists():

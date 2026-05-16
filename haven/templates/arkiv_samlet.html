@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block title %}Samlet arkiv · {{ have_navn | default('Haven') }}{% endblock %}
+
+{% block indhold %}
+<h1>📚 Samlet arkiv</h1>
+<p class="undertitel">Hvad der har stået i hvert bed på tværs af alle år</p>
+
+{% if not områder %}
+<p class="advarsel">Ingen arkivdata fundet.</p>
+{% else %}
+
+{% for html_navn, område in områder.items() %}
+<section class="arkiv-område" id="område-{{ html_navn }}">
+  <h2>{{ område.ikon }} {{ område.titel }}</h2>
+
+  {% for bed_id, bed in område.bede.items() %}
+  {% if bed.år %}
+  <div class="arkiv-bed">
+    <h3>{{ bed.navn }}</h3>
+    <table class="arkiv-tabel">
+      <tbody>
+        {% for år_nr, planter in bed.år.items() | sort %}
+        <tr>
+          <th class="arkiv-år-celle">{{ år_nr }}</th>
+          <td class="arkiv-planter-celle">
+            {% for p in planter %}{% if not loop.first %}, {% endif %}{{ p.navn }}{% if p.sort %} ({{ p.sort }}){% endif %}{% endfor %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+  {% endfor %}
+
+</section>
+{% endfor %}
+
+{% endif %}
+{% endblock %}
