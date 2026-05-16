@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+
+{% block title %}Planteregister{% endblock %}
+
+{% block body_attrs %} class="planter-side"{% endblock %}
+
+{% block indhold %}
+<header class="side-header">
+  <h1>🌿 Planteregister</h1>
+  <p class="meta-linje">{{ antal_planter }} sorter &mdash;
+    {% for g in grupper %}
+      <a href="#gruppe-{{ g.navn | lower | replace(' ', '-') }}">{{ g.ikon }} {{ g.navn }}</a>{% if not loop.last %} &middot; {% endif %}
+    {% endfor %}
+  </p>
+</header>
+
+<main>
+
+{# ── Kalenderforklaring ──────────────────────────────────────────────────── #}
+<section class="kalender-forklaring">
+  <span class="celle indendørs">ind.</span> Forspiring indendørs &ensp;
+  <span class="celle direkte">↓</span> Direkte såning &ensp;
+  <span class="celle udplantning">↓</span> Udplantning &ensp;
+  <span class="celle høst">⚘</span> Høst
+</section>
+
+{# ── Én sektion pr. gruppe ───────────────────────────────────────────────── #}
+{% for gruppe in grupper %}
+<section class="plante-gruppe" id="gruppe-{{ gruppe.navn | lower | replace(' ', '-') }}">
+
+  <h2 class="gruppe-overskrift">
+    {% if gruppe.url %}
+      <a href="{{ jaar_sti | default('') }}{{ gruppe.url }}">{{ gruppe.ikon }} {{ gruppe.navn }}</a>
+    {% else %}
+      {{ gruppe.ikon }} {{ gruppe.navn }}
+    {% endif %}
+  </h2>
+
+  <div class="plante-gitter">
+  {% for p in gruppe.planter %}
+
+    <article id="plante-{{ p.id }}" class="plante-kort {% if p.foto %}har-foto{% endif %}">
+
+      {% if p.foto %}
+      <div class="plante-foto">
+        {% if p.foto.fil.startswith('http') %}
+          <img src="{{ p.foto.fil }}" alt="{{ p.navn }}{% if p.sort %} – {{ p.sort }}{% endif %}" loading="lazy">
+        {% else %}
+          <a href="fotos/planter/{{ p.foto.fil }}" data-lightbox loading="lazy">
+            <img src="fotos/planter/thumbs/{{ p.foto.fil }}" loading="lazy" alt="{{ p.navn }}{% if p.sort %} – {{ p.sort }}{% endif %}">
+          </a>
+        {% endif %}
+      </div>
+      {% if p.foto.kilde %}
+      <small class="foto-kilde"><a href="{{ p.foto.kilde }}" target="_blank" rel="noopener">{{ p.foto.licens | default('©') }}</a></small>
+      {% endif %}
+      {% endif %}
+
+      <div class="plante-indhold">
+
+        <header class="plante-navn-linje">
+          <h3>{{ p.navn }}</h3>
+          {% if p.sort %}<span class="plante-sort">{{ p.sort }}</span>{% endif %}
+        </header>
+        {% if p.latin %}<p class="plante-latin">{{ p.latin }}</p>{% endif %}
+
+        <div class="plante-kalender" aria-label="Sæsonkalender">
+          {% for i in range(1, 13) %}
+            {% set celle = p | kalender_celle(i) %}
+            <div class="celle {{ celle.klasse }}" title="{{ måneder_lang[i-1] | capitalize }}">{{ celle.label }}</div>
+          {% endfor %}
+          <div class="kalender-måneder" aria-hidden="true">
+            {% for m in måneder %}<span>{{ m }}</span>{% endfor %}
+          </div>
+        </div>
+
+        {% if p.noter %}
+        <p class="plante-noter">{{ p.noter }}</p>
+        {% endif %}
+
+        {% if p.placering or p.afstand or p.rækkeafstand or p.sådybde %}
+        <dl class="plante-dyrkning">
+          {% if p.placering %}<div><dt>Placering</dt><dd>{{ p.placering }}</dd></div>{% endif %}
+          {% if p.afstand %}<div><dt>Afstand</dt><dd>{{ p.afstand }} cm</dd></div>{% endif %}
+          {% if p.rækkeafstand %}<div><dt>Rækkeafstand</dt><dd>{{ p.rækkeafstand }} cm</dd></div>{% endif %}
+          {% if p.sådybde %}<div><dt>Sådybde</dt><dd>{{ p.sådybde }} cm</dd></div>{% endif %}
+        </dl>
+        {% endif %}
+
+      </div>
+    </article>
+
+  {% endfor %}
+  </div>
+
+</section>
+{% endfor %}
+
+{# ── Billedrettigheder ──────────────────────────────────────────────────── #}
+{% set ns = namespace(wikimedia=[]) %}
+{% for gruppe in grupper %}
+  {% for p in gruppe.planter %}
+    {% if p.foto and p.foto.kilde %}{% set ns.wikimedia = ns.wikimedia + [p] %}{% endif %}
+  {% endfor %}
+{% endfor %}
+{% if ns.wikimedia %}
+<section class="attribution" id="billedrettigheder">
+  <h2>Billedrettigheder</h2>
+  <p class="attribution-note">Følgende billeder er hentet fra Wikimedia Commons under åbne licenser.</p>
+  <table class="attribution-tabel">
+    <thead>
+      <tr><th>Plante</th><th>Licens</th><th>Fotograf</th><th>Kilde</th></tr>
+    </thead>
+    <tbody>
+    {% for p in ns.wikimedia %}
+      <tr>
+        <td><a href="#plante-{{ p.id }}">{{ p.navn }}{% if p.sort %} <em>{{ p.sort }}</em>{% endif %}</a></td>
+        <td>{{ p.foto.licens | default('?') }}</td>
+        <td>{{ p.foto.forfatter | default('?') }}</td>
+        <td><a href="{{ p.foto.kilde }}" target="_blank" rel="noopener">Wikimedia Commons</a></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endif %}
+
+</main>
+{% endblock %}

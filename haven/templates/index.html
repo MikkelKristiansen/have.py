@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block title %}{{ have_navn | default('Haven') }} {{ år }}{% endblock %}
+
+{% block extra_head %}
+<style>
+  :root { --body-pad: 0px; }
+  body { padding: 0; max-width: 100%; background: #faf8f3; }
+  .cards {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 2rem; max-width: 900px; margin: -3rem auto 0; padding: 0 2rem 4rem; position: relative; z-index: 10;
+  }
+  .card {
+    background: #fff; border-radius: 16px; overflow: hidden;
+    box-shadow: 0 8px 32px rgba(26,58,26,.12), 0 2px 8px rgba(26,58,26,.08);
+    text-decoration: none; color: inherit;
+    transition: transform .25s ease, box-shadow .25s ease; display: flex; flex-direction: column;
+  }
+  .card:hover { transform: translateY(-6px); box-shadow: 0 16px 48px rgba(26,58,26,.18); }
+  .card-top {
+    padding: 2.5rem 2rem 1.5rem;
+    background: linear-gradient(135deg, var(--grøn-5) 0%, #fff 100%);
+    display: flex; align-items: center; gap: 1.25rem;
+    border-bottom: 1px solid rgba(168,197,160,.3);
+  }
+  .card-ikon { font-size: 3rem; line-height: 1; flex-shrink: 0; }
+  .card-ikon-billede { width: 3rem; height: 3rem; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
+  .card-top h2 { font-family: 'Playfair Display', serif; font-size: 1.5rem; color: var(--grøn-1); }
+  .card-top p { font-size: .8rem; color: var(--grøn-3); margin-top: .3rem; text-transform: uppercase; letter-spacing: .05em; }
+  .card-body { padding: 1.5rem 2rem; flex: 1; }
+  .card-body p { font-size: .9rem; line-height: 1.65; color: #555; }
+  .card-tags { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: 1rem; }
+  .tag {
+    background: var(--grøn-5); color: var(--grøn-2); font-size: .72rem;
+    padding: .2rem .65rem; border-radius: 999px; font-weight: 500; border: 1px solid rgba(168,197,160,.5);
+  }
+  .card-footer {
+    padding: 1.25rem 2rem; border-top: 1px solid var(--grøn-5);
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: .82rem; color: var(--grøn-3); font-weight: 500;
+  }
+  .card-footer .pil { font-size: 1.1rem; transition: transform .2s; }
+  .card:hover .pil { transform: translateX(4px); }
+</style>
+{% endblock %}
+
+{% block indhold %}
+{% if hero_billede %}
+<header class="hero" style="background-image: url('{{ hero_billede }}')">
+{% else %}
+<header class="hero hero--groen">
+{% endif %}
+  <div class="hero-deco">🌿</div>
+  <h1>{{ have_navn | default('Haven') }} <em>{{ år }}</em></h1>
+  <p class="hero-sub">Køkkenhave &amp; Krydderurter · {{ år }}</p>
+  <div class="hero-divider"></div>
+</header>
+
+<main class="cards">
+{% for p in projekter %}
+  <a href="{{ p.html_navn }}.html" class="card">
+    <div class="card-top">
+      {% if p.ikon_billede %}<img src="{{ p.ikon_billede }}" class="card-ikon-billede" alt="{{ p.titel }}">{% else %}<span class="card-ikon">{{ p.ikon }}</span>{% endif %}
+      <div>
+        <h2>{{ p.titel }}</h2>
+        <p>{{ p.undertitel }}</p>
+      </div>
+    </div>
+    <div class="card-body">
+      <p>{{ p.beskrivelse }}</p>
+      <div class="card-tags">
+        {% for tag in p.tags %}<span class="tag">{{ tag }}</span>{% endfor %}
+      </div>
+    </div>
+    <div class="card-footer">
+      <span>Se plan</span>
+      <span class="pil">→</span>
+    </div>
+  </a>
+{% endfor %}
+</main>
+{% endblock %}

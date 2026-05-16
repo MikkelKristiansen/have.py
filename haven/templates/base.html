@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block title %}{{ have_navn | default('Haven') }}{% endblock %}</title>
+{% block base_tag %}{% endblock %}<link rel="stylesheet" href="{{ rod_sti | default('') }}style.css">
+<style>
+  footer { text-align: center; padding: 2rem; font-size: .78rem; color: var(--grøn-4); background: var(--grøn-1); }
+</style>
+{% block extra_head %}{% endblock %}
+</head>
+<body{% block body_attrs %}{% endblock %}>
+
+{% block topnav %}
+{% set bede_ids = (nav_bede | default([])) | map(attribute='html_navn') | list %}
+<header class="site-header">
+  <div class="site-header-inner">
+    <a href="{{ jaar_sti | default('') }}index.html" class="site-logo">
+      🌿 <span>{{ have_navn | default('Haven') }}</span>
+    </a>
+    <button class="hamburger" id="hamburger" aria-label="Åbn menu">☰</button>
+    <nav class="hoved-nav" id="hoved-nav">
+      <a href="{{ jaar_sti | default('') }}index.html" class="nav-link{% if aktiv_side | default('') == 'hjem' %} aktiv{% endif %}">Hjem</a>
+      <div class="nav-dropdown" id="bede-dropdown">
+        <span class="nav-link nav-dropdown-toggle{% if aktiv_side | default('') in bede_ids %} aktiv{% endif %}">
+          Bede <span class="dropdown-pil">▾</span>
+        </span>
+        <div class="nav-dropdown-menu">
+          {% for b in nav_bede | default([]) %}
+          <a href="{{ jaar_sti | default('') }}{{ b.html_navn }}.html" class="dropdown-item">{{ b.ikon }} {{ b.titel }}</a>
+          {% endfor %}
+        </div>
+      </div>
+      <a href="{{ jaar_sti | default('') }}almanak.html" class="nav-link{% if aktiv_side | default('') == 'almanak' %} aktiv{% endif %}">Almanak</a>
+      <a href="{{ op_sti | default('../') }}planter.html" class="nav-link{% if aktiv_side | default('') == 'planter' %} aktiv{% endif %}">Planter</a>
+      <form action="{{ op_sti | default('../') }}søg.html" method="get" class="nav-søg" role="search">
+        <input type="search" name="q" placeholder="Søg…" class="nav-søg-input" aria-label="Søg i haven">
+        <button type="submit" class="nav-søg-knap" aria-label="Søg">🔍</button>
+      </form>
+      {% if år_liste | default([]) | length > 0 %}
+      <div class="nav-dropdown" id="arkiv-dropdown">
+        <span class="nav-link nav-dropdown-toggle">
+          Arkiv <span class="dropdown-pil">▾</span>
+        </span>
+        <div class="nav-dropdown-menu">
+          {% for å in år_liste | default([]) %}
+          <a href="{{ op_sti | default('../') }}{{ å }}/index.html" class="dropdown-item{% if å == aktivt_år | default(0) %} aktiv{% endif %}">
+            {{ å }}{% if å == aktivt_år | default(0) %} ✦{% endif %}
+          </a>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+    </nav>
+  </div>
+</header>
+{% endblock %}
+
+{% block indhold %}{% endblock %}
+
+<div class="lightbox-overlay" id="lightbox">
+  <img src="" alt="" id="lightbox-img">
+</div>
+
+<script>
+  // Lightbox
+  const overlay = document.getElementById('lightbox');
+  const lbImg   = document.getElementById('lightbox-img');
+  document.querySelectorAll('a[data-lightbox]').forEach(link => {
+    link.addEventListener('click', e => {
+      e.preventDefault();
+      lbImg.src = link.href;
+      lbImg.alt = link.querySelector('img')?.alt || '';
+      overlay.classList.add('aktiv');
+    });
+  });
+  overlay.addEventListener('click', () => overlay.classList.remove('aktiv'));
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') overlay.classList.remove('aktiv'); });
+
+  // Hamburger
+  const hamburger = document.getElementById('hamburger');
+  const nav = document.getElementById('hoved-nav');
+  hamburger.addEventListener('click', e => { e.stopPropagation(); nav.classList.toggle('åben'); });
+  document.addEventListener('click', e => {
+    if (!nav.contains(e.target) && e.target !== hamburger) nav.classList.remove('åben');
+  });
+
+  // Mobil Bede-dropdown
+  document.getElementById('bede-dropdown')?.querySelector('.nav-dropdown-toggle')
+    ?.addEventListener('click', e => {
+      if (window.innerWidth <= 768) {
+        e.stopPropagation();
+        document.getElementById('bede-dropdown').classList.toggle('åben');
+      }
+    });
+
+  // Mobil Arkiv-dropdown
+  document.getElementById('arkiv-dropdown')?.querySelector('.nav-dropdown-toggle')
+    ?.addEventListener('click', e => {
+      if (window.innerWidth <= 768) {
+        e.stopPropagation();
+        document.getElementById('arkiv-dropdown').classList.toggle('åben');
+      }
+    });
+</script>
+
+{% block extra_scripts %}{% endblock %}
+
+<footer>Haven {{ år }} · Genereret fra YAML · <a href="{{ op_sti | default('../') }}om.html" class="tilbage-link">Om siden</a> · <a href="{{ op_sti | default('../') }}kontakt.html" class="tilbage-link">Kontakt</a>{% if features.get('ics_kalender') %} · <a href="{{ rod_sti | default('') }}have-{{ år }}.ics" class="tilbage-link">📅 Abonnér på havekalender</a>{% endif %}{% if features.get('rss_feeds') %} · <a href="{{ rod_sti | default('') }}have-dagbog.rss" class="tilbage-link">📰 Dagbog RSS</a> · <a href="{{ rod_sti | default('') }}have-almanak.rss" class="tilbage-link">📰 Almanak RSS</a>{% endif %}</footer>
+</body>
+</html>

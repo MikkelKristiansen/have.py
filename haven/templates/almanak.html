@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+
+{% block title %}Havealmanak {{ år }}{% endblock %}
+
+{% block indhold %}
+<h1>Havealmanak {{ år }}</h1>
+<p class="undertitel">Samlet oversigt — alle havens dele</p>
+
+<nav class="intern-nav">
+  <a href="#kalender">📅 Kalender</a>
+  <a href="#almanak">📖 Almanak</a>
+  {% for mån in måneder %}
+  <a href="#måned-{{ mån.måned }}">{{ mån.navn[:3] }}</a>
+  {% endfor %}
+</nav>
+
+<!-- <h2 id="almanak" class="side-skift">📖 Månedsoversigt</h2> -->
+{# ── Samlet sådatokalender ── #}
+<h2 id="kalender" class="side-skift">📅 Samlet sådatokalender</h2>
+<div class="legende">
+  <div class="leg-item"><div class="leg-farve" style="background:#fff9c4"></div> Såning indendørs</div>
+  <div class="leg-item"><div class="leg-farve" style="background:#c8e6c9"></div> Udplantning</div>
+  <div class="leg-item"><div class="leg-farve" style="background:#b3e5fc"></div> Direkte såning</div>
+  <div class="leg-item"><div class="leg-farve" style="background:#ffe0b2"></div> Høst</div>
+</div>
+<div class="kalender-wrap">
+<table>
+  <thead>
+    <tr>
+      <th>Plante</th><th>Sort</th>
+      {% for mn in måneds_navne %}<th>{{ mn }}</th>{% endfor %}
+      <th>Noter</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for p in alle_planter %}
+    <tr>
+      <td class="kal-navn"><a href="../planter.html#plante-{{ p.id }}">{{ p.navn }}</a></td>
+      <td class="kal-sort">{{ p.sort | default('') }}</td>
+      {% for m in range(1, 13) %}
+        {% set celle = p | kalender_celle(m) %}
+        <td class="kal-celle {{ celle.klasse }}">{{ celle.label }}</td>
+      {% endfor %}
+      <td class="kal-note">{{ p.noter | default('') }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+
+<h2 id="almanak" class="side-skift">📖 Månedsoversigt</h2>
+
+<div class="almanak-container">
+{% for mån in måneder %}
+  <section class="alm-måned" id="måned-{{ mån.måned }}">
+    <h2 class="alm-måned-navn">{{ mån.navn }}</h2>
+
+    {# ── Indledninger — stemningsblok øverst ── #}
+    {% if mån.indledninger %}
+    <div class="alm-indledninger-blok">
+      {% for titel, tekst in mån.indledninger %}
+      <p class="alm-indledning-linje">
+        <span class="alm-indledning-kilde">{{ titel }}</span>{{ tekst }}
+      </p>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    {# ── Begivenheder grupperet pr. område ── #}
+    {% if mån.begivenheder %}
+    <div class="alm-opgaver">
+      {% for område, bev_liste in mån.begivenheder | groupby("kilde") %}
+      <div class="alm-område-gruppe">
+        <h3 class="alm-område-titel">{{ område | område_ikon }} {{ område }}</h3>
+        <ul class="alm-opgave-liste">
+          {% for b in bev_liste %}
+          <li>{{ b.tekst | trim }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    {# Entries fra alle haver #}
+    {% if mån.entries %}
+    <div class="alm-entries">
+      {% for entry in mån.entries %}
+      <article class="alm-entry" id="{{ entry._fil | default(entry.dato) }}">
+        <div class="alm-header">
+          <span class="alm-dato">{{ entry.dato | dato_fmt }}</span>
+          <h4 class="alm-titel">{{ entry.titel }}</h4>
+          <span class="alm-kilde-pill">{{ entry.kilde }}</span>
+          <div class="alm-tags">
+            {% for tag in entry.tags | default([]) %}
+            <span class="alm-tag">{{ tag }}</span>
+            {% endfor %}
+          </div>
+        </div>
+        <div class="alm-indhold {% if entry.foto %}har-foto{% endif %}">
+          {% if entry.foto %}
+          <figure class="alm-foto">
+            <a href="fotos/entries/{{ entry.foto.fil }}" data-lightbox loading="lazy">
+              <img src="fotos/entries/thumbs/{{ entry.foto.fil }}"
+                   loading="lazy"
+                   alt="{{ entry.foto.tekst | default('') }}">
+            </a>
+            {% if entry.foto.tekst %}
+            <figcaption>{{ entry.foto.tekst }}</figcaption>
+            {% endif %}
+          </figure>
+          {% endif %}
+          <div class="alm-tekst">
+            {% for linje in entry.tekst | default('') | splitlines %}
+            {% if linje.strip() %}<p>{{ linje }}</p>{% endif %}
+            {% endfor %}
+          </div>
+        </div>
+      </article>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+  </section>
+{% endfor %}
+</div>
+
+{% endblock %}

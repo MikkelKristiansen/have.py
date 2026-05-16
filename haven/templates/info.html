@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}{{ titel }} · Haven{% endblock %}
+{% block indhold %}
+<article class="info-side">
+  <h1>{{ titel }}</h1>
+
+  {% for afsnit in indhold %}
+  <p>{{ afsnit.tekst }}</p>
+  {% endfor %}
+
+  {% if kontakt %}
+  <ul class="kontakt-liste">
+    {% for k in kontakt %}
+    <li>
+      <span class="kontakt-label">{{ k.label }}</span>
+      {% if k.link %}
+      <a href="{{ k.link }}">{{ k.værdi }}</a>
+      {% else %}
+      <span>{{ k.værdi }}</span>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+</article>
+{% endblock %}

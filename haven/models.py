@@ -1,0 +1,30 @@
+from pydantic import BaseModel, Field
+
+
+class FotoModel(BaseModel):
+    fil:       str
+    kilde:     str | None = None
+    url:       str | None = None
+    licens:    str | None = None
+    forfatter: str | None = None
+
+
+class Plante(BaseModel):
+    id:          str
+    navn:        str
+    sort:        str | None = None
+    latin:       str | None = Field(None, json_schema_extra={"kilde": "wikidata", "prop": "P225"})
+    familie:     str | None = Field(None, json_schema_extra={"kilde": "wikidata", "prop": "P171"})
+    wikidata:    str | None = Field(None, json_schema_extra={"kilde": "wizard"})
+    farve:       str | None = None
+    placering:   str | None = None
+    afstand:     int | str | None = None
+    rækkeafstand: int | str | None = None
+    sådybde:     float | None = None
+    indendørs:   int | None = Field(None, ge=1, le=12)
+    udplantning: int | None = Field(None, ge=1, le=12)
+    direkte:     int | None = Field(None, ge=1, le=12)
+    høst_fra:    int | None = Field(None, ge=1, le=12)
+    høst_til:    int | None = Field(None, ge=1, le=12)
+    noter:       str | None = None
+    foto:        FotoModel | None = None

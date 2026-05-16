@@ -1,0 +1,48 @@
+
+# === Python ===
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+build/
+dist/
+
+# === Virtuelle miljøer ===
+venv/
+.venv/
+env/
+
+# === .env-filer (adgangskoder) ===
+.env
+!.env.eksempel
+
+# === Genereret output ===
+out/
+
+# === Build-artefakter ===
+haven-starter-*.tar.gz
+
+# === Personlige data (entries) ===
+data/*/entries/
+fotos/entries/
+
+# === Interne arbejdsdokumenter ===
+briefs/
+CLAUDE.md
+
+# === Editor / IDE ===
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# === Plante-fotos (downloades af brugeren via scripts/hent_plantefotos.py) ===
+fotos/planter/*
+fotos/planter/thumbs/*
+!fotos/planter/placeholder.jpg
+
+# === OS-filer ===
+.DS_Store
+Thumbs.db
+desktop.ini

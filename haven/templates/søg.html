@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% block title %}Søg — {{ have_navn | default('Haven') }}{% endblock %}
+
+{% block extra_head %}
+<style>
+.søg-wrapper { max-width: 720px; margin: 2rem auto; padding: 0 1.5rem 4rem; }
+.søg-wrapper h1 { margin-bottom: 1.25rem; }
+.søg-felt-wrapper { display: flex; gap: .5rem; margin-bottom: 2rem; }
+#søg-input {
+  flex: 1;
+  border: 1.5px solid rgba(45,90,39,.3);
+  border-radius: 999px;
+  padding: .55rem 1.1rem;
+  font-size: 1rem;
+  outline: none;
+  color: var(--tekst);
+  background: #f8faf7;
+  transition: border-color .15s;
+}
+#søg-input:focus { border-color: var(--grøn-mørk); }
+#søg-status { color: #888; font-size: .85rem; margin-bottom: 1.25rem; min-height: 1.2em; }
+.søg-resultat {
+  border-left: 3px solid var(--grøn-lys);
+  padding: .75rem 1rem;
+  margin-bottom: 1.25rem;
+  border-radius: 0 6px 6px 0;
+  background: #fafcf9;
+  transition: border-color .15s;
+}
+.søg-resultat:hover { border-color: var(--grøn-mørk); }
+.søg-resultat a { text-decoration: none; color: inherit; display: block; }
+.søg-navn { font-weight: 600; font-size: 1rem; color: var(--grøn-mørk); }
+.søg-meta { font-size: .8rem; color: #777; margin: .25rem 0; }
+.søg-tekst {
+  font-size: .88rem;
+  color: #444;
+  margin-top: .35rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.søg-badge {
+  display: inline-block;
+  font-size: .7rem;
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  padding: .1em .5em;
+  border-radius: 999px;
+  margin-left: .4rem;
+  vertical-align: middle;
+  background: #e8f5e9;
+  color: var(--grøn-mørk);
+}
+mark { background: #d4edda; padding: 0 .15em; border-radius: 2px; }
+</style>
+{% endblock %}
+
+{% block indhold %}
+<main class="søg-wrapper">
+  <h1>🔍 Søg i haven</h1>
+  <div class="søg-felt-wrapper">
+    <input type="search" id="søg-input" placeholder="Søg på plante, sted, tekst…" autocomplete="off" spellcheck="false">
+  </div>
+  <div id="søg-status"></div>
+  <div id="søg-resultater"></div>
+</main>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>const SØG_DATA = {{ søg_data_json }};</script>
+<script src="https://cdn.jsdelivr.net/npm/fuse.js@7/dist/fuse.min.js"></script>
+<script>
+(function () {
+  const MÅNEDER = ['jan','feb','mar','apr','maj','jun','jul','aug','sep','okt','nov','dec'];
+  function datoLabel(datoStr) {
+    const d = new Date(datoStr + 'T00:00:00');
+    if (isNaN(d)) return datoStr;
+    return d.getDate() + '. ' + MÅNEDER[d.getMonth()] + ' ' + d.getFullYear();
+  }
+
+  function highlight(tekst, term) {
+    if (!term) return tekst;
+    const re = new RegExp('(' + term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi');
+    return tekst.replace(re, '<mark>$1</mark>');
+  }
+
+  const input  = document.getElementById('søg-input');
+  const status = document.getElementById('søg-status');
+  const liste  = document.getElementById('søg-resultater');
+  const data   = SØG_DATA;
+
+  const fuse = new Fuse(data, {
+    keys: [
+      { name: 'tekst',     weight: 3 },
+      { name: 'navn',      weight: 2 },
+      { name: 'bed_titel', weight: 1 },
+    ],
+    threshold: 0.35,
+    includeScore: true,
+    ignoreLocation: true,
+    minMatchCharLength: 2,
+  });
+
+  function søg(q) {
+    q = q.trim();
+    if (!q) { liste.innerHTML = ''; status.textContent = data.length + ' entries klar til søgning'; return; }
+    const res = fuse.search(q).slice(0, 20);
+    status.textContent = res.length
+      ? res.length + ' resultat' + (res.length !== 1 ? 'er' : '') + ' for «' + q + '»'
+      : 'Ingen resultater for «' + q + '»';
+    liste.innerHTML = res.map(({ item }) => {
+      const navn  = item.navn      ? highlight(item.navn, q)      : '';
+      const bed   = item.bed_titel ? highlight(item.bed_titel, q) : item.bed;
+      const tekst = item.tekst     ? highlight(item.tekst.slice(0, 220), q) : '';
+      const overskrift = navn || bed;
+      const erBedeplan = item.type === 'bedeplan';
+      const badge = erBedeplan ? '<span class="søg-badge">bedeplan</span>' : '';
+      const meta = erBedeplan
+        ? item.år + ' · ' + bed
+        : item.år + ' · ' + bed + ' · ' + datoLabel(item.dato);
+      return '<div class="søg-resultat">'
+        + '<a href="' + item.link + '">'
+        + '<div class="søg-navn">' + overskrift + badge + '</div>'
+        + '<div class="søg-meta">' + meta + '</div>'
+        + (tekst ? '<div class="søg-tekst">' + (erBedeplan ? '📍 ' : '"') + tekst + (erBedeplan ? '' : '"') + '</div>' : '')
+        + '</a></div>';
+    }).join('');
+  }
+
+  const q0 = new URLSearchParams(location.search).get('q') || '';
+  if (q0) { input.value = q0; søg(q0); }
+  else     { status.textContent = data.length + ' entries klar til søgning'; }
+
+  input.addEventListener('input', () => søg(input.value));
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter')
+      history.replaceState({}, '', '?q=' + encodeURIComponent(input.value.trim()));
+  });
+})();
+</script>
+{% endblock %}
