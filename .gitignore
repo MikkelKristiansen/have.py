@@ -30,6 +30,7 @@ data/202*/
 data/*.yaml
 data/entries/
 fotos/entries/
+haven.yaml
 
 # === Havebilleder i rod (private) ===
 fotos/*.jpg
