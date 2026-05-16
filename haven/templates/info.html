@@ -5,7 +5,7 @@
   <h1>{{ titel }}</h1>
 
   {% for afsnit in indhold %}
-  <p>{{ afsnit.tekst }}</p>
+  {{ afsnit.tekst | md | safe }}
   {% endfor %}
 
   {% if kontakt %}

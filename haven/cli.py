@@ -262,6 +262,8 @@ def lav_jinja_env():
     def splitlines(tekst):
         return str(tekst).splitlines()
 
+    import markdown as _md
+    env.filters["md"]             = lambda t: _md.markdown(str(t))
     env.filters["aktiv_afgrøde"]  = aktiv_afgrøde
     env.filters["kalender_celle"] = kalender_celle
     env.filters["dato_fmt"]       = dato_fmt
