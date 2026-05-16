@@ -1,0 +1,11 @@
+titel: "Kontakt"
+html_navn: "kontakt"
+
+indhold:
+  - tekst: >
+      Har du spørgsmål eller kommentarer til haven, er du velkommen til at tage kontakt.
+
+kontakt:
+  - label: "E-mail"
+    værdi: "din@email.dk"
+    link: "mailto:din@email.dk"

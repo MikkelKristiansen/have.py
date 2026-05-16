@@ -1,0 +1,55 @@
+meta:
+  titel: Planteregister
+  html_navn: planter
+  undertitel: Alle sorter med kalender og noter
+  beskrivelse: Alle havens planter samlet — sådatoer, høsttider og billeder.
+  ikon: 🌿
+
+planter:
+
+- id: nantes
+  navn: Gulerødder
+  sort: Nantes
+  latin: Daucus carota
+  farve: '#fb8c00'
+  placering: Sol
+  afstand: 5
+  rækkeafstand: 20
+  sådybde: 1
+  direkte: 4
+  høst_fra: 7
+  høst_til: 10
+  noter: Tyndingssåning. Kan sås til juli.
+  foto:
+    fil: placeholder.jpg
+
+- id: dild
+  navn: Dild
+  latin: Anethum graveolens
+  farve: '#d4e157'
+  placering: Sol
+  afstand: 10
+  rækkeafstand: 20
+  sådybde: 0.5
+  direkte: 4
+  høst_fra: 6
+  høst_til: 8
+  noter: Sås hver 3. uge for løbende høst. Bolter hurtigt.
+  foto:
+    fil: placeholder.jpg
+
+- id: persille
+  navn: Persille
+  latin: Petroselinum crispum
+  farve: '#66bb6a'
+  placering: Sol/Halvskygge
+  afstand: 10
+  rækkeafstand: 25
+  sådybde: 1
+  indendørs: 2
+  udplantning: 4
+  høst_fra: 5
+  høst_til: 10
+  noter: Toårig. Lang spiretid — 3-4 uger. Forspiring anbefales.
+  foto:
+    fil: placeholder.jpg

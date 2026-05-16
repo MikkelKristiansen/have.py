@@ -1,0 +1,45 @@
+meta:
+  titel: Havealmanak
+  html_navn: almanak
+  undertitel: Sæsonens gang
+  beskrivelse: Almanakken samler vigtige tidspunkter og noter fra havens sæson.
+  ikon: "📖"
+  tags: [Højbedshaven]
+
+måneder:
+
+  - måned: 3
+    navn: Marts
+    indledninger:
+      - område_id: hoejbede
+        tekst: Forbered bedene og sæt frø til forspiringen indendørs.
+    begivenheder:
+      - område_id: hoejbede
+        tekst: Forspir persille indendørs
+
+  - måned: 4
+    navn: April
+    indledninger:
+      - område_id: hoejbede
+        tekst: Tid til at så direkte i bedene når frosten er ovre.
+    begivenheder:
+      - område_id: hoejbede
+        tekst: Så gulerødder og dild direkte
+
+  - måned: 5
+    navn: Maj
+    indledninger:
+      - område_id: hoejbede
+        tekst: Udplant persille og hold øje med ukrudt.
+    begivenheder:
+      - område_id: hoejbede
+        tekst: Udplant persille
+
+  - måned: 7
+    navn: Juli
+    indledninger:
+      - område_id: hoejbede
+        tekst: De første gulerødder er klar til høst.
+    begivenheder:
+      - område_id: hoejbede
+        tekst: Høst gulerødder efterhånden som de er klar

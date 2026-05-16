@@ -22,9 +22,17 @@ out/
 # === Build-artefakter ===
 haven-starter-*.tar.gz
 
-# === Personlige data (entries) ===
-data/*/entries/
+# === Personlige data (private årsdata, havejournaler og siteindstillinger) ===
+data/202*/
+data/*.yaml
+data/entries/
 fotos/entries/
+
+# === Havebilleder i rod (private) ===
+fotos/*.jpg
+fotos/*.JPG
+fotos/*.jpeg
+fotos/*.png
 
 # === Interne arbejdsdokumenter ===
 briefs/

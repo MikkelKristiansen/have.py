@@ -1,0 +1,41 @@
+meta:
+  år: 2026
+  titel: Højbedshaven
+  html_navn: hoejbede
+  ikon: 🥕
+  undertitel: Køkkengrøntsager
+  beskrivelse: Et eksempelbed med tre klassiske haveplanter.
+  tags:
+  - Gulerødder
+  - Krydderurter
+
+bede:
+- id: bed-1
+  navn: Eksempelbed
+  bredde_cm: 300
+  dybde_cm: 80
+  farve: '#d4edda'
+  zoner:
+  - navn: Gulerødder
+    bredde: 0.40
+    afgrøder:
+    - plante_id: nantes
+      fra: 4
+      til: 10
+  - navn: Dild
+    bredde: 0.30
+    afgrøder:
+    - plante_id: dild
+      fra: 4
+      til: 8
+  - navn: Persille
+    bredde: 0.30
+    afgrøder:
+    - plante_id: persille
+      fra: 4
+      til: 10
+
+kalender_planter:
+- nantes
+- dild
+- persille

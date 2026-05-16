@@ -1,0 +1,10 @@
+titel: "Om siden"
+html_navn: "om"
+
+indhold:
+  - tekst: >
+      Velkommen til min have. Her dokumenterer jeg sæsonen 2026 med bedoversigter,
+      sådatokalendere og en løbende almanak.
+  - tekst: >
+      Siden genereres automatisk fra YAML-filer via have.py.
+      Rediger filerne i data/ for at tilpasse den til din have.
