@@ -22,6 +22,9 @@ out/
 # === Build-artefakter ===
 haven-starter-*.tar.gz
 
+# === Lokal brugerkonfiguration ===
+haven.yaml
+
 # === Personlige data (private årsdata, havejournaler og siteindstillinger) ===
 data/202*/
 data/*.yaml

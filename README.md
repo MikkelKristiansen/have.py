@@ -51,6 +51,18 @@ Indholdet redigeres i tre typer filer:
 
 Se den fulde feltdokumentation i [`docs/skema.md`](docs/skema.md).
 
+## Konfiguration
+
+`haven.yaml` er din lokale konfigurationsfil og er ikke inkluderet i repositoriet.
+Kopiér eksempelfilen og tilpas den:
+
+```bash
+cp haven.example.yaml haven.yaml
+```
+
+Rediger `haven.yaml` og sæt mindst `aktivt_år` og `bede` til dine egne værdier.
+Se kommentarerne i filen for forklaring af hvert felt.
+
 ## Adgangskoder til deploy
 
 ```bash

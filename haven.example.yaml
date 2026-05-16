@@ -1,0 +1,65 @@
+# Runtime-konfiguration for haven
+# Kopiér denne fil til haven.yaml og tilpas felterne til din opsætning.
+#
+#   cp haven.example.yaml haven.yaml
+
+# Det aktive haveår — bestemmer hvilken årsmappe der bygges fra (data/{aktivt_år}/)
+aktivt_år: 2026
+
+stier:
+  # Sti til YAML-datafiler (relativt til projektrod)
+  data: data
+  # Sti til genereret HTML-site
+  out: out
+  # Sti til billeder
+  fotos: fotos
+
+# Filnavne (uden .yaml) i data/{aktivt_år}/ der skal rendres som havebede.
+# Hvert navn svarer til én bed-fil, fx. data/2026/højbedshaven.yaml
+bede:
+  - højbedshaven
+  - krydderurter
+
+site:
+  # Basis-URL til det færdige site — bruges i RSS-feeds og iCal-links
+  basis_url: "https://min-have.dk"
+
+features:
+  # Generér iCal-fil (have.ics) med plantekalender
+  ics_kalender: true
+  # Generér RSS-feeds for dagbog og almanak
+  rss_feeds: true
+
+# Valgfri: din e-mail vises i User-Agent ved download af billeder fra Wikimedia.
+# Det er god skik og giver Wikimedia mulighed for at kontakte dig ved misbrug.
+# kontakt_email: din@email.dk
+
+# Valgfri: eget forside-billede — vises som hero-baggrund på forsiden.
+# Sti er relativ til projektrod. Udelades feltet bruges mørkegrøn baggrund.
+# hero_billede: fotos/min-have.jpg
+
+# Ikon-billede per bed sættes i det pågældende beds YAML under meta:
+#   meta:
+#     ikon_billede: fotos/drivhus.jpg   # rund thumbnail — overstyrer emoji på kortet
+
+deploy:
+  # Deploymekanisme: "sftp", "ftp" eller "ingen"
+  protokol: ingen
+
+  sftp:
+    # Hostname på din server, fx. "ssh.webhotel.dk"
+    host: ""
+    # SSH-brugernavn
+    bruger: ""
+    # Sti på serveren hvortil sitet uploades
+    mappe: "/var/www/min-have"
+    # Adgangskode: sæt HAVE_SFTP_KODE i .env (kopiér fra .env.eksempel)
+
+  ftp:
+    # Hostname på din FTP-server
+    host: ""
+    # FTP-brugernavn
+    bruger: ""
+    # Sti på serveren hvortil sitet uploades
+    mappe: "/public_html"
+    # Adgangskode: sæt HAVE_FTP_KODE i .env (kopiér fra .env.eksempel)
