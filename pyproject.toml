@@ -35,7 +35,7 @@ dependencies = [
 ]
 
 [project.urls]
-Repository = "https://github.com/mikkeljk/have.py"
+Repository = "https://github.com/MikkelKristiansen/have.py"
 
 [project.scripts]
 have = "haven.cli:main"
