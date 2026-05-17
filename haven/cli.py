@@ -3689,11 +3689,8 @@ def plant_en_plante():
                 sys.exit(0)
             valgt_plante = hits[labels.index(valgt_label)]
 
-    # ── 4. Zone-navn og bredde ────────────────────────────────────────────────
-    default_navn = valgt_plante.get("sort") or valgt_plante.get("navn", "")
-    zone_navn = (questionary.text("Navn på zonen:", default=default_navn).ask() or "").strip()
-    if not zone_navn:
-        sys.exit(0)
+    # ── 4. Bredde ─────────────────────────────────────────────────────────────
+    zone_navn = valgt_plante.get("sort") or valgt_plante.get("navn", "")
 
     def _valider_bredde(v):
         try:
