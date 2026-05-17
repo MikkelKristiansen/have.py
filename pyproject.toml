@@ -33,6 +33,7 @@ dependencies = [
     "ruamel-yaml>=0.18",
     "questionary>=2.0",
     "markdown>=3.0",
+    "requests>=2.28",
 ]
 
 [project.urls]

@@ -3422,6 +3422,121 @@ def nyt_bed():
     print("  Kør 'have' for at opdatere sitet.")
 
 
+# ── Vejrdata ───────────────────────────────────────────────────────────────────
+
+def hent_vejr(år: int, force: bool = False):
+    """Hent historisk vejrdata fra Open-Meteo og skriv månedlig statistik til almanak.yaml."""
+    try:
+        import requests
+    except ImportError:
+        print("❌ requests er ikke installeret — kør: pip install requests")
+        sys.exit(1)
+
+    from ruamel.yaml import YAML
+    from ruamel.yaml.comments import CommentedMap
+
+    lok = _config.get("lokation")
+    if not lok:
+        print(
+            "❌ Mangler 'lokation' i haven.yaml. Tilføj:\n\n"
+            "  lokation:\n"
+            "    breddegrad: 55.67\n"
+            "    længdegrad: 12.56\n"
+            "    navn: \"København NV\""
+        )
+        sys.exit(1)
+
+    breddegrad = lok["breddegrad"]
+    længdegrad = lok["længdegrad"]
+    sted_navn  = lok.get("navn", f"{breddegrad}, {længdegrad}")
+
+    i_dag       = datetime.date.today()
+    start_dato  = datetime.date(år, 1, 1)
+    if force:
+        slut_dato = i_dag
+    else:
+        slut_dato = i_dag.replace(day=1) - datetime.timedelta(days=1)
+
+    if slut_dato < start_dato:
+        print(f"ℹ️  Ingen afsluttede måneder at hente for {år} endnu")
+        return
+
+    almanak_sti = sti(_config, "data") / str(år) / "almanak.yaml"
+    if not almanak_sti.exists():
+        print(f"❌ Filen findes ikke: {almanak_sti}")
+        sys.exit(1)
+
+    print(f"📡 Henter vejrdata for {sted_navn} ({start_dato} → {slut_dato})…")
+    resp = requests.get(
+        "https://archive-api.open-meteo.com/v1/archive",
+        params={
+            "latitude":   breddegrad,
+            "longitude":  længdegrad,
+            "start_date": start_dato.isoformat(),
+            "end_date":   slut_dato.isoformat(),
+            "daily":      "temperature_2m_max,temperature_2m_min,temperature_2m_mean,precipitation_sum",
+            "timezone":   "Europe/Copenhagen",
+        },
+        timeout=30,
+    )
+    if not resp.ok:
+        print(f"❌ API-fejl {resp.status_code}: {resp.text[:200]}")
+        sys.exit(1)
+
+    daily      = resp.json().get("daily", {})
+    datoer     = daily.get("time", [])
+    t_max      = daily.get("temperature_2m_max", [])
+    t_min      = daily.get("temperature_2m_min", [])
+    t_mean     = daily.get("temperature_2m_mean", [])
+    nedbør_raw = daily.get("precipitation_sum", [])
+
+    måneds_rå: dict[str, dict] = {}
+    for i, dato_str in enumerate(datoer):
+        måned_navn = MÅNEDER_LANG[datetime.date.fromisoformat(dato_str).month - 1]
+        d = måneds_rå.setdefault(måned_navn, {"mean": [], "min": [], "max": [], "ned": []})
+        if t_mean[i]      is not None: d["mean"].append(t_mean[i])
+        if t_min[i]       is not None: d["min"].append(t_min[i])
+        if t_max[i]       is not None: d["max"].append(t_max[i])
+        if nedbør_raw[i]  is not None: d["ned"].append(nedbør_raw[i])
+
+    ryaml = YAML()
+    ryaml.preserve_quotes  = True
+    ryaml.default_flow_style = False
+    ryaml.width = 120
+    with open(almanak_sti, encoding="utf-8") as f:
+        alm = ryaml.load(f) or {}
+
+    if "temperatur" not in alm:
+        alm["temperatur"] = {}
+
+    temp_sek = alm["temperatur"]
+    skrevne  = []
+
+    for måned_navn, d in måneds_rå.items():
+        if måned_navn in temp_sek and not force:
+            continue
+        if not d["mean"]:
+            continue
+        m = CommentedMap()
+        m["middel"]    = round(sum(d["mean"]) / len(d["mean"]), 1)
+        m["min"]       = round(min(d["min"]), 1) if d["min"] else None
+        m["max"]       = round(max(d["max"]), 1) if d["max"] else None
+        m["frostdage"] = sum(1 for v in d["min"] if v < 0)
+        m["nedbør_mm"] = round(sum(d["ned"]), 1)
+        temp_sek[måned_navn] = m
+        skrevne.append(måned_navn)
+        print(f"  ✓ {måned_navn} {år} skrevet")
+
+    if not skrevne:
+        print("ℹ️  Ingen nye måneder at skrive (brug --force for at overskrive eksisterende)")
+        return
+
+    with open(almanak_sti, "w", encoding="utf-8") as f:
+        ryaml.dump(alm, f)
+
+    print(f"\n✅ {len(skrevne)} måned(er) skrevet til {almanak_sti.name}")
+
+
 # ── Main ───────────────────────────────────────────────────────────────────────
 
 def main():
@@ -3484,6 +3599,13 @@ def main():
     # Subkommando: deploy
     subparsers.add_parser("deploy", help="Generer alle sider og upload til server (protokol sat i haven.yaml)")
 
+    # Subkommando: hent-vejr
+    hent_vejr_parser = subparsers.add_parser("hent-vejr", help="Hent historisk vejrdata fra Open-Meteo og skriv til almanak.yaml")
+    hent_vejr_parser.add_argument("--år", type=int, default=datetime.date.today().year,
+                                  help="Årstal der hentes for (standard: indeværende år)")
+    hent_vejr_parser.add_argument("--force", action="store_true",
+                                  help="Overskriv eksisterende måneder og inkludér indeværende måned")
+
     # Subkommando: watch
     watch_parser = subparsers.add_parser("watch", help="Filwatcher der genbygger ved ændringer (livereload)")
     watch_parser.add_argument("--port", type=int, default=5500, help="Port til livereload-server (standard: 5500)")
@@ -3521,6 +3643,10 @@ def main():
 
     if args.kommando == "ny-entry":
         ny_entry()
+        sys.exit(0)
+
+    if args.kommando == "hent-vejr":
+        hent_vejr(args.år, force=args.force)
         sys.exit(0)
 
     if args.kommando == "deploy":
