@@ -494,6 +494,130 @@ def flet_almanakker(projekter_data, entries_fil=None):
     return måneder
 
 
+def generer_vejr_svg(temperatur_dict: dict) -> "dict | None":
+    """Generer tre SVG-sparklines fra månedlig temperatur- og nedbørsdata."""
+    if not temperatur_dict:
+        return None
+
+    W, H = 300, 60
+    PAD_TOP, PAD_BOT = 4, 4
+    usable = H - PAD_TOP - PAD_BOT
+    col_w  = W / 12
+    GRN, BLU = "#4a7c59", "#5b8dd9"
+
+    def xp(i):
+        return round((i + 0.5) * col_w, 2)
+
+    middel = [temperatur_dict.get(m, {}).get("middel")      for m in MÅNEDER_LANG]
+    frost  = [temperatur_dict.get(m, {}).get("frostdage", 0) for m in MÅNEDER_LANG]
+    ned    = [temperatur_dict.get(m, {}).get("nedbør_mm", 0) for m in MÅNEDER_LANG]
+
+    til_stede = [v for v in middel if v is not None]
+    if not til_stede:
+        return None
+
+    # ── Temperaturlinje ───────────────────────────────────────────────────────
+    t_min = min(min(til_stede), 0)
+    t_max = max(max(til_stede), 0)
+    if t_max == t_min:
+        t_max += 1
+
+    def yp(t):
+        return round(PAD_TOP + (t_max - t) / (t_max - t_min) * usable, 2)
+
+    def lbl(x, y, txt, anchor="end"):
+        return (f'<text x="{x}" y="{y}" font-size="7" fill="#aaa" '
+                f'text-anchor="{anchor}" font-family="sans-serif">{txt}</text>')
+
+    y0 = yp(0)
+    elementer = [
+        f'<line x1="0" y1="{y0}" x2="{W}" y2="{y0}" '
+        f'stroke="#bbb" stroke-width="0.7" stroke-dasharray="3,3"/>'
+    ]
+    for i in range(11):
+        if middel[i] is None or middel[i + 1] is None:
+            continue
+        t1, t2 = middel[i], middel[i + 1]
+        x1, x2 = xp(i), xp(i + 1)
+        y1, y2 = yp(t1), yp(t2)
+        if (t1 >= 0) == (t2 >= 0):
+            c = GRN if t1 >= 0 else BLU
+            elementer.append(
+                f'<line x1="{x1}" y1="{y1}" x2="{x2}" y2="{y2}" '
+                f'stroke="{c}" stroke-width="1.5" stroke-linecap="round"/>'
+            )
+        else:
+            ratio  = t1 / (t1 - t2)
+            xc     = round(x1 + ratio * (x2 - x1), 2)
+            c1, c2 = (GRN, BLU) if t1 >= 0 else (BLU, GRN)
+            elementer.append(
+                f'<line x1="{x1}" y1="{y1}" x2="{xc}" y2="{y0}" '
+                f'stroke="{c1}" stroke-width="1.5" stroke-linecap="round"/>'
+                f'<line x1="{xc}" y1="{y0}" x2="{x2}" y2="{y2}" '
+                f'stroke="{c2}" stroke-width="1.5" stroke-linecap="round"/>'
+            )
+    # Skala: top/bund-værdier + 0°-markering på linjen
+    import math as _math
+    elementer += [
+        lbl(W - 2, 9,      f"{_math.ceil(t_max)}°"),
+        lbl(W - 2, H - 2,  f"{_math.floor(t_min)}°"),
+        lbl(4,     y0 - 2, "0°", anchor="start"),
+    ]
+
+    temp_svg = (
+        f'<svg viewBox="0 0 {W} {H}" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">'
+        + "".join(elementer) + "</svg>"
+    )
+
+    # ── Frostdage-søjler ──────────────────────────────────────────────────────
+    max_frost = max(frost) if frost else 0
+    frost_el  = []
+    if max_frost > 0:
+        for i, fv in enumerate(frost):
+            if not fv:
+                continue
+            bh = round(fv / max_frost * (H - 2), 2)
+            bx = round(xp(i) - col_w * 0.32, 2)
+            bw = round(col_w * 0.64, 2)
+            frost_el.append(
+                f'<rect x="{bx}" y="{round(H - bh, 2)}" '
+                f'width="{bw}" height="{bh}" fill="{BLU}" rx="1"/>'
+            )
+        frost_el += [lbl(W - 2, 9, str(max_frost)), lbl(W - 2, H - 2, "0")]
+
+    frost_svg = (
+        f'<svg viewBox="0 0 {W} {H}" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">'
+        + "".join(frost_el) + "</svg>"
+    )
+
+    # ── Nedbør-søjler ─────────────────────────────────────────────────────────
+    max_ned = max(ned) if ned else 0
+    ned_el  = []
+    if max_ned > 0:
+        for i, nv in enumerate(ned):
+            if not nv:
+                continue
+            bh = round(nv / max_ned * (H - 2), 2)
+            bx = round(xp(i) - col_w * 0.32, 2)
+            bw = round(col_w * 0.64, 2)
+            ned_el.append(
+                f'<rect x="{bx}" y="{round(H - bh, 2)}" '
+                f'width="{bw}" height="{bh}" fill="#90aec9" rx="1"/>'
+            )
+        ned_el += [lbl(W - 2, 9, f"{max_ned:.0f}"), lbl(W - 2, H - 2, "0")]
+
+    ned_svg = (
+        f'<svg viewBox="0 0 {W} {H}" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">'
+        + "".join(ned_el) + "</svg>"
+    )
+
+    return {
+        "temperatur_linje": temp_svg,
+        "frostdage_søjler": frost_svg,
+        "nedbør_søjler":    ned_svg,
+    }
+
+
 def generer_samlet_almanak(projekter_yaml, almanak_sti, env, alle_planter=None, nav_context=None,
                            almanak_fil=None, entries_fil=None, år=None):
     """Generer én samlet almanakside fra alle projekters almanakfiler."""
@@ -505,9 +629,11 @@ def generer_samlet_almanak(projekter_yaml, almanak_sti, env, alle_planter=None, 
     yaml_filer = projekter_yaml
     år_fra_yaml = None
     projekter_data = []
+    vejr_svg = None
     if os.path.exists(_almanak_fil):
         alm = load_yaml(_almanak_fil)
         år_fra_yaml = alm.get("meta", {}).get("år")
+        vejr_svg = generer_vejr_svg(alm.get("temperatur", {}))
         # Find alle unikke område_id'er i filen
         område_ids = set()
         for m in alm.get("måneder", []):
@@ -542,6 +668,7 @@ def generer_samlet_almanak(projekter_yaml, almanak_sti, env, alle_planter=None, 
     output   = skabelon.render(år=år, måneder=måneder,
                                alle_planter=alle_planter_sorteret,
                                måneds_navne=MÅNEDER,
+                               vejr_svg=vejr_svg,
                                **(nav_context or {}))
 
     if skriv_hvis_ændret(almanak_sti, output):
