@@ -3591,6 +3591,180 @@ def nyt_bed():
     print("  Kør 'have' for at opdatere sitet.")
 
 
+# ── Plant en plante ────────────────────────────────────────────────────────────
+
+def plant_en_plante():
+    """Interaktiv wizard til at plante en plante i et eksisterende bed."""
+    import io
+    import questionary
+    from ruamel.yaml import YAML as RuamelYAML
+    from ruamel.yaml.comments import CommentedSeq, CommentedMap
+
+    ry = RuamelYAML()
+    ry.preserve_quotes  = True
+    ry.default_flow_style = False
+    ry.width = 120
+
+    plante_db = byg_plante_db()
+
+    # ── 1. Vælg område ────────────────────────────────────────────────────────
+    yaml_filer = sorted(
+        f for f in os.listdir(DATA_MAPPE)
+        if f.endswith(".yaml") and f not in {"almanak.yaml", "entries.yaml"}
+    )
+    if not yaml_filer:
+        print(f"❌ Ingen zone-YAML-filer fundet i {DATA_MAPPE}/")
+        sys.exit(1)
+
+    fil_data: dict = {}
+    fil_valg = []
+    for fil in yaml_filer:
+        with open(DATA_MAPPE / fil, encoding="utf-8") as fh:
+            data = ry.load(fh)
+        fil_data[fil] = data
+        meta = data.get("meta", {}) if isinstance(data, dict) else {}
+        titel = meta.get("titel", fil)
+        fil_valg.append(questionary.Choice(title=f"{titel}  ({fil})", value=fil))
+
+    valgt_fil = questionary.select(
+        "Hvilket område vil du plante i?",
+        choices=fil_valg,
+    ).ask()
+    if not valgt_fil:
+        sys.exit(0)
+
+    zone_data = fil_data[valgt_fil]
+
+    # ── 2. Vælg bed ───────────────────────────────────────────────────────────
+    bede = zone_data.get("bede", []) if isinstance(zone_data, dict) else []
+    if not bede:
+        print(f"❌ Ingen bede fundet i {valgt_fil}")
+        sys.exit(1)
+
+    bed_valg = []
+    for bed in bede:
+        bid   = bed.get("id", "?")
+        bnavn = bed.get("navn", bid)
+        bcm   = bed.get("bredde_cm", "?")
+        dcm   = bed.get("dybde_cm",  "?")
+        optaget = sum(z.get("bredde", 0) for z in bed.get("zoner", []))
+        ledig_pct = round((1.0 - optaget) * 100)
+        bed_valg.append(questionary.Choice(
+            title=f"{bnavn}  [{bcm}×{dcm} cm — {ledig_pct}% ledig]",
+            value=bid,
+        ))
+
+    valgt_bed_id = questionary.select(
+        "Hvilket bed vil du plante i?",
+        choices=bed_valg,
+    ).ask()
+    if not valgt_bed_id:
+        sys.exit(0)
+
+    valgt_bed  = next(b for b in bede if b.get("id") == valgt_bed_id)
+    optaget    = sum(z.get("bredde", 0) for z in valgt_bed.get("zoner", []))
+    ledig      = round(1.0 - optaget, 4)
+
+    # ── 3. Vælg plante ────────────────────────────────────────────────────────
+    if not plante_db:
+        print(f"❌ Ingen planter fundet i {PLANTER_FIL}")
+        sys.exit(1)
+
+    valgt_plante = None
+    print()
+    while valgt_plante is None:
+        søg = questionary.text("Søg efter plante (navn, sort eller id):").ask()
+        if søg is None:
+            sys.exit(0)
+        hits = _søg_planter(søg, plante_db)
+        if not hits:
+            print(f"  Ingen planter matcher '{søg}'. Prøv igen.")
+            continue
+        if len(hits) == 1:
+            valgt_plante = hits[0]
+        else:
+            labels = [_plante_label(p) for p in hits]
+            valgt_label = questionary.select("Vælg plante:", choices=labels).ask()
+            if not valgt_label:
+                sys.exit(0)
+            valgt_plante = hits[labels.index(valgt_label)]
+
+    # ── 4. Zone-navn og bredde ────────────────────────────────────────────────
+    default_navn = valgt_plante.get("sort") or valgt_plante.get("navn", "")
+    zone_navn = (questionary.text("Navn på zonen:", default=default_navn).ask() or "").strip()
+    if not zone_navn:
+        sys.exit(0)
+
+    def _valider_bredde(v):
+        try:
+            f = float(v.replace(",", "."))
+        except ValueError:
+            return "Indtast et tal, fx 0.25"
+        if f <= 0 or f > 1.0:
+            return "Bredden skal være et tal mellem 0 og 1"
+        return True
+
+    bredde_hint = (f"ledig: {ledig:.2f} ({ledig*100:.0f}%)"
+                   if ledig > 0 else "bedet er fuldt optaget")
+    bredde_str = questionary.text(
+        f"Bredde 0–1  [{bredde_hint}]:",
+        validate=_valider_bredde,
+    ).ask()
+    if bredde_str is None:
+        sys.exit(0)
+    zone_bredde = round(float(bredde_str.replace(",", ".")), 4)
+
+    if zone_bredde > ledig + 0.001:
+        ny_total = round(optaget + zone_bredde, 4)
+        ok = questionary.confirm(
+            f"⚠️  Zonen ({zone_bredde}) overstiger den ledige plads ({ledig:.2f}). "
+            f"Total bliver {ny_total}. Vil du fortsætte?",
+            default=False,
+        ).ask()
+        if not ok:
+            sys.exit(0)
+
+    # ── 5. Preview og bekræft ─────────────────────────────────────────────────
+    ny_zone = CommentedMap()
+    ny_zone["navn"]      = zone_navn
+    ny_zone["bredde"]    = zone_bredde
+    ny_zone["plante_id"] = valgt_plante["id"]
+
+    buf = io.StringIO()
+    ry.dump({"__z__": ny_zone}, buf)
+    zone_lines = [
+        (l[2:] if l.startswith("  ") else l)
+        for l in buf.getvalue().splitlines()
+        if not l.startswith("__z__:")
+    ]
+    print("\n── YAML-preview ──────────────────────────────────────────")
+    print("\n".join(zone_lines))
+    print("──────────────────────────────────────────────────────────\n")
+
+    ok = questionary.confirm(
+        f"Plant '{zone_navn}' i bed '{valgt_bed.get('navn', valgt_bed_id)}'?",
+        default=True,
+    ).ask()
+    if not ok:
+        print("Afbrudt — ingen ændringer gemt.")
+        sys.exit(0)
+
+    # ── 6. Skriv til YAML-fil ─────────────────────────────────────────────────
+    for bed in zone_data["bede"]:
+        if bed.get("id") == valgt_bed_id:
+            if "zoner" not in bed or bed["zoner"] is None:
+                bed["zoner"] = CommentedSeq()
+            bed["zoner"].append(ny_zone)
+            break
+
+    with open(DATA_MAPPE / valgt_fil, "w", encoding="utf-8") as fh:
+        ry.dump(zone_data, fh)
+
+    print(f"✅ '{zone_navn}' ({valgt_plante['id']}) plantet i "
+          f"'{valgt_bed.get('navn', valgt_bed_id)}'")
+    print("   Kør 'have build' for at opdatere sitet.")
+
+
 # ── Vejrdata ───────────────────────────────────────────────────────────────────
 
 def hent_vejr(år: int, force: bool = False):
@@ -3784,6 +3958,9 @@ def main():
     # Subkommando: ny-entry
     subparsers.add_parser("ny-entry", help="Opret ny dagbogsentry (interaktiv wizard)")
 
+    # Subkommando: plant-en-plante
+    subparsers.add_parser("plant-en-plante", help="Plant en plante i et eksisterende bed (interaktiv wizard)")
+
     # Subkommando: build (alias for default)
     subparsers.add_parser("build", help="Generer alle HTML-sider (alias for: have uden argumenter)")
 
@@ -3835,6 +4012,10 @@ def main():
 
     if args.kommando == "ny-entry":
         ny_entry()
+        sys.exit(0)
+
+    if args.kommando == "plant-en-plante":
+        plant_en_plante()
         sys.exit(0)
 
     if args.kommando == "hent-vejr":
