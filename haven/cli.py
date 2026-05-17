@@ -681,6 +681,12 @@ def generer_samlet_arkiv(år_liste, arkiv_samlet_sti, env, plante_db=None, nav_c
                 if planter_i_år:
                     områder[html_navn]["bede"][bed_id]["år"][år] = planter_i_år
 
+    områder = {
+        navn: område
+        for navn, område in områder.items()
+        if any(bed["år"] for bed in område["bede"].values())
+    }
+
     skabelon = env.get_template("arkiv_samlet.html")
     output = skabelon.render(
         titel="Samlet arkiv",
