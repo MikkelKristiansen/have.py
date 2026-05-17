@@ -655,7 +655,10 @@ def generer_samlet_arkiv(år_liste, arkiv_samlet_sti, env, plante_db=None, nav_c
                 seen: set = set()
                 planter_i_år: list = []
                 for zone in bed.get("zoner", []):
-                    for afgrøde in zone.get("afgrøder", []):
+                    afgrøder_liste = zone.get("afgrøder") or []
+                    if not afgrøder_liste and zone.get("plante_id"):
+                        afgrøder_liste = [zone]
+                    for afgrøde in afgrøder_liste:
                         plante_id = afgrøde.get("plante_id", "")
                         plante = plante_db.get(plante_id, {})
                         navn = plante.get("navn", plante_id)
