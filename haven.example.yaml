@@ -30,6 +30,13 @@ features:
   # Generér RSS-feeds for dagbog og almanak
   rss_feeds: true
 
+# Valgfri: geografisk placering — bruges af 'have hent-vejr' til at hente
+# historisk vejrdata fra Open-Meteo. Udelades feltet virker hent-vejr ikke.
+# lokation:
+#   breddegrad: 55.67
+#   længdegrad: 12.56
+#   navn: "København NV"
+
 # Valgfri: din e-mail vises i User-Agent ved download af billeder fra Wikimedia.
 # Det er god skik og giver Wikimedia mulighed for at kontakte dig ved misbrug.
 # kontakt_email: din@email.dk
