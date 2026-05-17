@@ -68,8 +68,8 @@ def byg(version: str, output_mappe: Path) -> Path:
             starter / "fotos" / "planter" / "placeholder.jpg",
         )
 
-        # Sanitiseret haven.yaml (fra haven.eksempel.yaml)
-        shutil.copy2(PROJECT_ROOT / "haven.eksempel.yaml", starter / "haven.yaml")
+        # Sanitiseret haven.yaml (fra haven.example.yaml)
+        shutil.copy2(PROJECT_ROOT / "haven.example.yaml", starter / "haven.yaml")
 
         # Starter-README (fra docs/starter-readme.md)
         shutil.copy2(PROJECT_ROOT / "docs" / "starter-readme.md", starter / "README.md")
