@@ -1,4 +1,24 @@
 # Haveentries 2026
-# Tilføj noter og fotos her, eller brug markdown-filer i entries/-mappen.
 
-entries: []
+entries:
+
+  - dato: 2026-04-20
+    zone: hoejbede
+    plante_id: nantes
+    tekst: |
+      De første gulerødder er spiret frem — fine, hårfine blade stikker op af mulden.
+
+      Rækken ser jævn ud, og afstanden ser fornuftig ud. Vandet forsigtigt med
+      vandkande for ikke at skylle frøene væk.
+
+  - dato: 2026-05-12
+    zone: hoejbede
+    plante_id: dild
+    tekst: |
+      Dilden er begyndt at vokse for alvor. Lugede ukrudt langs rækken og tyndede
+      ud, så der er ca. 15 cm mellem planterne.
+
+      **Bemærk:** Dilden trives dårligt ved siden af fennikel — hold dem adskilt.
+    foto:
+      fil: dild-maj.jpg
+      tekst: Dild efter udtynding i maj

@@ -1800,6 +1800,34 @@ def _lav_almanak_yaml(have_titel, områder, år):
     return "\n".join(linjer) + "\n"
 
 
+def _lav_entries_yaml(år: int, zone: str) -> str:
+    import datetime
+    april = datetime.date(år, 4, 20).isoformat()
+    maj   = datetime.date(år, 5, 12).isoformat()
+    return (
+        f"# Haveentries {år}\n"
+        "# Brug 'have ny-entry' til at oprette entries interaktivt,\n"
+        "# eller skriv dem direkte her. Eksempel:\n"
+        "#\n"
+        "# entries:\n"
+        f"#   - dato: {april}\n"
+        f"#     zone: {zone}       # HTML-navn på det bed du skriver om\n"
+        "#     plante_id: nantes   # ID på planten (valgfri)\n"
+        "#     tekst: |\n"
+        "#       De første gulerødder er spiret frem — fine, hårfine blade.\n"
+        "#\n"
+        "#       Markdown virker: **fed**, *kursiv*, lister osv.\n"
+        f"#   - dato: {maj}\n"
+        f"#     zone: {zone}\n"
+        "#     tekst: Lugede ukrudt og vandede.\n"
+        "#     foto:\n"
+        f"#       fil: mit-foto.jpg   # Placér billedet i fotos/entries/{år}/\n"
+        "#       tekst: Billedtekst\n"
+        "\n"
+        "entries: []\n"
+    )
+
+
 def _find_yaml_filer():
     """Find projektets YAML-filer i DATA_MAPPE automatisk. Fallback: YAML_FILER_DEFAULT."""
     SYSTEM_FILER = {"planter.yaml", "almanak.yaml", "entries.yaml"}
@@ -1937,8 +1965,9 @@ def init_projekt(ja: bool = False):
     with open(os.path.join(data_år_sti, "almanak.yaml"), "w", encoding="utf-8") as f:
         f.write(_lav_almanak_yaml(have_titel, områder, år))
 
+    første_zone = områder[0]["html_navn"] if områder else "hoejbede"
     with open(os.path.join(data_år_sti, "entries.yaml"), "w", encoding="utf-8") as f:
-        f.write(f"# Haveentries {år}\n# Tilføj noter og fotos her.\n\nentries: []\n")
+        f.write(_lav_entries_yaml(år, første_zone))
 
     om_sti = os.path.join("data", "om.yaml")
     om_fandtes = os.path.exists(om_sti)

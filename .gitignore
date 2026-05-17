@@ -42,6 +42,7 @@ fotos/*.png
 # === Interne arbejdsdokumenter ===
 briefs/
 CLAUDE.md
+memory/
 
 # === Editor / IDE ===
 .vscode/
