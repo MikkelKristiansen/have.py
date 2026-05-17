@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# PYTHON_ARGCOMPLETE_OK
 """
 have.py — Generer HTML-plan for køkkenhaven via Jinja2-skabeloner.
 Læser YAML-filer og producerer HTML til webbrug og print via browser.
@@ -11,6 +12,7 @@ Brug:
 import sys
 import os
 import argparse
+import argcomplete
 from pathlib import Path
 import subprocess
 import datetime
@@ -3792,6 +3794,7 @@ def main():
 
     # Standard: generer
     parser.add_argument("yaml", nargs="*", default=None)
+    argcomplete.autocomplete(parser)
     args = parser.parse_args()
 
     yaml_filer = args.yaml if args.yaml else _find_yaml_filer()
