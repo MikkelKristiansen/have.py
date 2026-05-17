@@ -3340,7 +3340,10 @@ def nyt_bed():
             zone = {"navn": zone_navn, "bredde": zone_bredde, "afgrøder": afgrøder}
 
         zoner.append(zone)
-        print(f"  ✓ Zone '{zone_navn}' tilføjet ({valgt_plante['id'] if 'plante_id' in zone else 'sædskifte'})")
+        if 'plante_id' in zone:
+            print(f"  ✓ Zone '{zone_navn}' tilføjet ({zone['plante_id']})")
+        else:
+            print(f"  ✓ Zone '{zone_navn}' tilføjet (sædskifte)")
 
     # ── 4. Byg bed-dict og vis YAML-preview ────────────────────────────────────
     from ruamel.yaml.comments import CommentedMap, CommentedSeq
