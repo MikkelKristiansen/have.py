@@ -3762,6 +3762,135 @@ def plant_en_plante():
     print("   Kør 'have build' for at opdatere sitet.")
 
 
+def riv_en_plante_op():
+    """Interaktiv wizard til at fjerne en zone fra et eksisterende bed."""
+    import io
+    import questionary
+    from ruamel.yaml import YAML as RuamelYAML
+
+    ry = RuamelYAML()
+    ry.preserve_quotes  = True
+    ry.default_flow_style = False
+    ry.width = 120
+
+    plante_db = byg_plante_db()
+
+    # ── 1. Vælg område ────────────────────────────────────────────────────────
+    yaml_filer = sorted(
+        f for f in os.listdir(DATA_MAPPE)
+        if f.endswith(".yaml") and f not in {"almanak.yaml", "entries.yaml"}
+    )
+    if not yaml_filer:
+        print(f"❌ Ingen zone-YAML-filer fundet i {DATA_MAPPE}/")
+        sys.exit(1)
+
+    fil_data: dict = {}
+    fil_valg = []
+    for fil in yaml_filer:
+        with open(DATA_MAPPE / fil, encoding="utf-8") as fh:
+            data = ry.load(fh)
+        fil_data[fil] = data
+        meta = data.get("meta", {}) if isinstance(data, dict) else {}
+        titel = meta.get("titel", fil)
+        fil_valg.append(questionary.Choice(title=f"{titel}  ({fil})", value=fil))
+
+    valgt_fil = questionary.select(
+        "Hvilket område vil du rive op i?",
+        choices=fil_valg,
+    ).ask()
+    if not valgt_fil:
+        sys.exit(0)
+
+    zone_data = fil_data[valgt_fil]
+
+    # ── 2. Vælg bed ───────────────────────────────────────────────────────────
+    bede = zone_data.get("bede", []) if isinstance(zone_data, dict) else []
+    if not bede:
+        print(f"❌ Ingen bede fundet i {valgt_fil}")
+        sys.exit(1)
+
+    bed_valg = []
+    for bed in bede:
+        bid   = bed.get("id", "?")
+        bnavn = bed.get("navn", bid)
+        antal = len(bed.get("zoner") or [])
+        bed_valg.append(questionary.Choice(
+            title=f"{bnavn}  [{antal} zone{'r' if antal != 1 else ''}]",
+            value=bid,
+        ))
+
+    valgt_bed_id = questionary.select(
+        "Hvilket bed vil du rive op i?",
+        choices=bed_valg,
+    ).ask()
+    if not valgt_bed_id:
+        sys.exit(0)
+
+    valgt_bed = next(b for b in bede if b.get("id") == valgt_bed_id)
+    zoner = valgt_bed.get("zoner") or []
+    if not zoner:
+        print(f"❌ Bedet '{valgt_bed.get('navn', valgt_bed_id)}' har ingen zoner.")
+        sys.exit(1)
+
+    # ── 3. Vælg zone ──────────────────────────────────────────────────────────
+    def _zone_label(z):
+        zone_navn = z.get("navn", "?")
+        pid = z.get("plante_id")
+        if pid:
+            p = plante_db.get(pid, {})
+            plante_navn = p.get("sort") or p.get("navn") or pid
+            return f"{zone_navn}  ({plante_navn})"
+        if z.get("afgrøder"):
+            return f"{zone_navn}  (sædskifte)"
+        return zone_navn
+
+    zone_valg = [
+        questionary.Choice(title=_zone_label(z), value=i)
+        for i, z in enumerate(zoner)
+    ]
+
+    valgt_idx = questionary.select(
+        "Hvilken zone vil du fjerne?",
+        choices=zone_valg,
+    ).ask()
+    if valgt_idx is None:
+        sys.exit(0)
+
+    valgt_zone = zoner[valgt_idx]
+
+    # ── 4. Preview og bekræft ─────────────────────────────────────────────────
+    buf = io.StringIO()
+    ry.dump({"__z__": valgt_zone}, buf)
+    zone_lines = [
+        (l[2:] if l.startswith("  ") else l)
+        for l in buf.getvalue().splitlines()
+        if not l.startswith("__z__:")
+    ]
+    print("\n── Fjerner denne zone ────────────────────────────────────")
+    print("\n".join(zone_lines))
+    print("──────────────────────────────────────────────────────────\n")
+
+    ok = questionary.confirm(
+        f"Fjern '{_zone_label(valgt_zone)}' fra bed '{valgt_bed.get('navn', valgt_bed_id)}'?",
+        default=False,
+    ).ask()
+    if not ok:
+        print("Afbrudt — ingen ændringer gemt.")
+        sys.exit(0)
+
+    # ── 5. Skriv til YAML-fil ─────────────────────────────────────────────────
+    for bed in zone_data["bede"]:
+        if bed.get("id") == valgt_bed_id:
+            bed["zoner"].pop(valgt_idx)
+            break
+
+    with open(DATA_MAPPE / valgt_fil, "w", encoding="utf-8") as fh:
+        ry.dump(zone_data, fh)
+
+    print(f"✅ '{_zone_label(valgt_zone)}' fjernet fra '{valgt_bed.get('navn', valgt_bed_id)}'")
+    print("   Kør 'have build' for at opdatere sitet.")
+
+
 # ── Vejrdata ───────────────────────────────────────────────────────────────────
 
 def hent_vejr(år: int, force: bool = False):
@@ -3958,6 +4087,8 @@ def main():
     # Subkommando: plant-en-plante
     subparsers.add_parser("plant-en-plante", help="Plant en plante i et eksisterende bed (interaktiv wizard)")
 
+    subparsers.add_parser("riv-en-plante-op", help="Fjern en zone/plante fra et eksisterende bed (interaktiv wizard)")
+
     # Subkommando: build (alias for default)
     subparsers.add_parser("build", help="Generer alle HTML-sider (alias for: have uden argumenter)")
 
@@ -4013,6 +4144,10 @@ def main():
 
     if args.kommando == "plant-en-plante":
         plant_en_plante()
+        sys.exit(0)
+
+    if args.kommando == "riv-en-plante-op":
+        riv_en_plante_op()
         sys.exit(0)
 
     if args.kommando == "hent-vejr":
