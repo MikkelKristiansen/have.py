@@ -9,7 +9,7 @@ import os
 import yaml
 from dotenv import load_dotenv
 
-PROJECT_ROOT = Path(__file__).parent.parent.resolve()
+PROJECT_ROOT = Path(os.environ.get("HAVEN_ROOTDIR", str(Path(__file__).parent.parent))).resolve()
 CONFIG_FIL = PROJECT_ROOT / "haven.yaml"
 
 load_dotenv(PROJECT_ROOT / ".env", override=True)
