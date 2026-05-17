@@ -14,6 +14,32 @@
   {% endfor %}
 </nav>
 
+{% if vejr_svg %}
+<section class="vejr-oversigt">
+  <h2 class="vejr-titel">🌡 Vejr {{ år }}</h2>
+  <div class="vejr-sparklines">
+    <div class="vejr-sparkline-række">
+      <span class="vejr-label">Temperatur</span>
+      <div class="vejr-svg-wrap">{{ vejr_svg.temperatur_linje | safe }}</div>
+    </div>
+    <div class="vejr-sparkline-række">
+      <span class="vejr-label">Frostdage</span>
+      <div class="vejr-svg-wrap">{{ vejr_svg.frostdage_søjler | safe }}</div>
+    </div>
+    <div class="vejr-sparkline-række">
+      <span class="vejr-label">Nedbør mm</span>
+      <div class="vejr-svg-wrap">{{ vejr_svg.nedbør_søjler | safe }}</div>
+    </div>
+    <div class="vejr-sparkline-række">
+      <span class="vejr-label"></span>
+      <div class="vejr-svg-wrap vejr-maaned-labels">
+        {% for mn in måneds_navne %}<span>{{ mn }}</span>{% endfor %}
+      </div>
+    </div>
+  </div>
+</section>
+{% endif %}
+
 <!-- <h2 id="almanak" class="side-skift">📖 Månedsoversigt</h2> -->
 {# ── Samlet sådatokalender ── #}
 <h2 id="kalender" class="side-skift">📅 Samlet sådatokalender</h2>
