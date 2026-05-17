@@ -2760,6 +2760,15 @@ def ny_entry():
     if dato_input is None:
         sys.exit(0)
 
+    dato_år = int(dato_input[:4])
+    if dato_år != AKTIVT_ÅR:
+        ok = questionary.confirm(
+            f"⚠️  {dato_år} er ikke det aktive år ({AKTIVT_ÅR}). Vil du fortsætte?",
+            default=False,
+        ).ask()
+        if not ok:
+            sys.exit(0)
+
     yaml_filer = _find_yaml_filer()
     zoner = []
     for yaml_sti in yaml_filer:
