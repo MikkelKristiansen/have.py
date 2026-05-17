@@ -494,126 +494,127 @@ def flet_almanakker(projekter_data, entries_fil=None):
     return måneder
 
 
-def generer_vejr_svg(temperatur_dict: dict) -> "dict | None":
-    """Generer tre SVG-sparklines fra månedlig temperatur- og nedbørsdata."""
-    if not temperatur_dict:
+def generer_måned_svg(måned_data: dict) -> "dict | None":
+    """Generer tre SVG-grafer for én måneds daglige vejrdata."""
+    daglige = måned_data.get("daglige") if måned_data else None
+    if not daglige:
         return None
 
-    W, H = 300, 60
-    PAD_TOP, PAD_BOT = 4, 4
-    usable = H - PAD_TOP - PAD_BOT
-    col_w  = W / 12
-    GRN, BLU = "#4a7c59", "#5b8dd9"
-
-    def xp(i):
-        return round((i + 0.5) * col_w, 2)
-
-    middel = [temperatur_dict.get(m, {}).get("middel")      for m in MÅNEDER_LANG]
-    frost  = [temperatur_dict.get(m, {}).get("frostdage", 0) for m in MÅNEDER_LANG]
-    ned    = [temperatur_dict.get(m, {}).get("nedbør_mm", 0) for m in MÅNEDER_LANG]
-
-    til_stede = [v for v in middel if v is not None]
-    if not til_stede:
+    d_middel = list(daglige.get("middel") or [])
+    d_min    = list(daglige.get("min")    or [])
+    d_ned    = list(daglige.get("nedbør") or [])
+    n = len(d_middel)
+    if not n:
         return None
 
-    # ── Temperaturlinje ───────────────────────────────────────────────────────
-    t_min = min(min(til_stede), 0)
-    t_max = max(max(til_stede), 0)
-    if t_max == t_min:
-        t_max += 1
+    W, H   = 400, 80
+    ML, MR = 28, 4
+    PT, PB = 6, 14
+    DW = W - ML - MR
+    DH = H - PT - PB
+    col = DW / n
 
-    def yp(t):
-        return round(PAD_TOP + (t_max - t) / (t_max - t_min) * usable, 2)
+    def xd(i):
+        return round(ML + (i + 0.5) * col, 2)
 
-    def lbl(x, y, txt, anchor="end"):
-        return (f'<text x="{x}" y="{y}" font-size="7" fill="#aaa" '
-                f'text-anchor="{anchor}" font-family="sans-serif">{txt}</text>')
+    dag_lbl_idx = sorted({0, 4, 9, 14, 19, 24, n - 1})
 
-    y0 = yp(0)
-    elementer = [
-        f'<line x1="0" y1="{y0}" x2="{W}" y2="{y0}" '
-        f'stroke="#bbb" stroke-width="0.7" stroke-dasharray="3,3"/>'
-    ]
-    for i in range(11):
-        if middel[i] is None or middel[i + 1] is None:
+    def lbl_y(x, y, txt):
+        return (f'<text x="{x}" y="{y}" font-size="6.5" fill="#aaa" '
+                f'text-anchor="end" font-family="sans-serif">{txt}</text>')
+
+    def lbl_x(x, y, txt):
+        return (f'<text x="{x}" y="{y}" font-size="6.5" fill="#ccc" '
+                f'text-anchor="middle" font-family="sans-serif">{txt}</text>')
+
+    def hgrid(y, stroke, da=None):
+        d = f' stroke-dasharray="{da}"' if da else ""
+        return (f'<line x1="{ML}" y1="{y}" x2="{W - MR}" y2="{y}" '
+                f'stroke="{stroke}" stroke-width="0.5"{d}/>')
+
+    # ── Temperaturlinje (deles af middel og min) ──────────────────────────────
+    T_MIN, T_MAX = -15, 30
+
+    def yt(t):
+        return round(PT + (T_MAX - t) / (T_MAX - T_MIN) * DH, 2)
+
+    def temp_svg(vals, c_pos, c_neg):
+        els = []
+        for gv, stroke, da in [
+            (-5, "#e8e8e8", "2,3"), (0, "#bbb", "3,2"),
+            (5, "#e8e8e8", "2,3"),  (10, "#e8e8e8", "2,3"),
+            (15, "#e8e8e8", "2,3"), (20, "#e8e8e8", "2,3"),
+        ]:
+            yg = yt(gv)
+            els.append(hgrid(yg, stroke, da))
+            els.append(lbl_y(ML - 2, round(yg + 2.5, 2), f"{gv}°"))
+        for i in dag_lbl_idx:
+            if i < n:
+                els.append(lbl_x(xd(i), H - 2, str(i + 1)))
+        y0 = yt(0)
+        for i in range(n - 1):
+            v1, v2 = vals[i], vals[i + 1]
+            if v1 is None or v2 is None:
+                continue
+            x1, x2 = xd(i), xd(i + 1)
+            y1, y2 = yt(v1), yt(v2)
+            if (v1 >= 0) == (v2 >= 0):
+                c = c_pos if v1 >= 0 else c_neg
+                els.append(
+                    f'<line x1="{x1}" y1="{y1}" x2="{x2}" y2="{y2}" '
+                    f'stroke="{c}" stroke-width="1.0" stroke-linecap="round"/>'
+                )
+            else:
+                ratio = v1 / (v1 - v2)
+                xc = round(x1 + ratio * (x2 - x1), 2)
+                c1, c2 = (c_pos, c_neg) if v1 >= 0 else (c_neg, c_pos)
+                els.append(
+                    f'<line x1="{x1}" y1="{y1}" x2="{xc}" y2="{y0}" '
+                    f'stroke="{c1}" stroke-width="1.0" stroke-linecap="round"/>'
+                    f'<line x1="{xc}" y1="{y0}" x2="{x2}" y2="{y2}" '
+                    f'stroke="{c2}" stroke-width="1.0" stroke-linecap="round"/>'
+                )
+        return (
+            f'<svg viewBox="0 0 {W} {H}" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">'
+            + "".join(els) + "</svg>"
+        )
+
+    # ── Nedbør ────────────────────────────────────────────────────────────────
+    N_MAX  = 20
+    y_bot  = PT + DH
+    bw     = max(round(col * 0.72, 2), 0.8)
+
+    def yn(v):
+        return round(PT + (N_MAX - min(v, N_MAX)) / N_MAX * DH, 2)
+
+    ned_els = []
+    for gv in [5, 10]:
+        yg = yn(gv)
+        ned_els.append(hgrid(yg, "#e8e8e8", "2,3"))
+        ned_els.append(lbl_y(ML - 2, round(yg + 2.5, 2), str(gv)))
+    ned_els.append(lbl_y(ML - 2, y_bot, "0"))
+    ned_els.append(hgrid(y_bot, "#ddd"))
+    for i in dag_lbl_idx:
+        if i < len(d_ned):
+            ned_els.append(lbl_x(xd(i), H - 2, str(i + 1)))
+    for i, nv in enumerate(d_ned):
+        if not nv or nv <= 0:
             continue
-        t1, t2 = middel[i], middel[i + 1]
-        x1, x2 = xp(i), xp(i + 1)
-        y1, y2 = yp(t1), yp(t2)
-        if (t1 >= 0) == (t2 >= 0):
-            c = GRN if t1 >= 0 else BLU
-            elementer.append(
-                f'<line x1="{x1}" y1="{y1}" x2="{x2}" y2="{y2}" '
-                f'stroke="{c}" stroke-width="1.5" stroke-linecap="round"/>'
-            )
-        else:
-            ratio  = t1 / (t1 - t2)
-            xc     = round(x1 + ratio * (x2 - x1), 2)
-            c1, c2 = (GRN, BLU) if t1 >= 0 else (BLU, GRN)
-            elementer.append(
-                f'<line x1="{x1}" y1="{y1}" x2="{xc}" y2="{y0}" '
-                f'stroke="{c1}" stroke-width="1.5" stroke-linecap="round"/>'
-                f'<line x1="{xc}" y1="{y0}" x2="{x2}" y2="{y2}" '
-                f'stroke="{c2}" stroke-width="1.5" stroke-linecap="round"/>'
-            )
-    # Skala: top/bund-værdier + 0°-markering på linjen
-    import math as _math
-    elementer += [
-        lbl(W - 2, 9,      f"{_math.ceil(t_max)}°"),
-        lbl(W - 2, H - 2,  f"{_math.floor(t_min)}°"),
-        lbl(4,     y0 - 2, "0°", anchor="start"),
-    ]
-
-    temp_svg = (
-        f'<svg viewBox="0 0 {W} {H}" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">'
-        + "".join(elementer) + "</svg>"
-    )
-
-    # ── Frostdage-søjler ──────────────────────────────────────────────────────
-    max_frost = max(frost) if frost else 0
-    frost_el  = []
-    if max_frost > 0:
-        for i, fv in enumerate(frost):
-            if not fv:
-                continue
-            bh = round(fv / max_frost * (H - 2), 2)
-            bx = round(xp(i) - col_w * 0.32, 2)
-            bw = round(col_w * 0.64, 2)
-            frost_el.append(
-                f'<rect x="{bx}" y="{round(H - bh, 2)}" '
-                f'width="{bw}" height="{bh}" fill="{BLU}" rx="1"/>'
-            )
-        frost_el += [lbl(W - 2, 9, str(max_frost)), lbl(W - 2, H - 2, "0")]
-
-    frost_svg = (
-        f'<svg viewBox="0 0 {W} {H}" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">'
-        + "".join(frost_el) + "</svg>"
-    )
-
-    # ── Nedbør-søjler ─────────────────────────────────────────────────────────
-    max_ned = max(ned) if ned else 0
-    ned_el  = []
-    if max_ned > 0:
-        for i, nv in enumerate(ned):
-            if not nv:
-                continue
-            bh = round(nv / max_ned * (H - 2), 2)
-            bx = round(xp(i) - col_w * 0.32, 2)
-            bw = round(col_w * 0.64, 2)
-            ned_el.append(
-                f'<rect x="{bx}" y="{round(H - bh, 2)}" '
-                f'width="{bw}" height="{bh}" fill="#90aec9" rx="1"/>'
-            )
-        ned_el += [lbl(W - 2, 9, f"{max_ned:.0f}"), lbl(W - 2, H - 2, "0")]
+        bh = round(min(nv, N_MAX) / N_MAX * DH, 2)
+        bx = round(xd(i) - bw / 2, 2)
+        ned_els.append(
+            f'<rect x="{bx}" y="{round(y_bot - bh, 2)}" '
+            f'width="{bw}" height="{bh}" fill="#90aec9" rx="0.5"/>'
+        )
 
     ned_svg = (
         f'<svg viewBox="0 0 {W} {H}" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">'
-        + "".join(ned_el) + "</svg>"
+        + "".join(ned_els) + "</svg>"
     )
 
     return {
-        "temperatur_linje": temp_svg,
-        "frostdage_søjler": frost_svg,
+        "temperatur_linje": temp_svg(d_middel, "#4a7c59", "#5b8dd9"),
+        "min_linje":        temp_svg(d_min,    "#7aadce", "#1e3a8a"),
         "nedbør_søjler":    ned_svg,
     }
 
@@ -629,11 +630,11 @@ def generer_samlet_almanak(projekter_yaml, almanak_sti, env, alle_planter=None, 
     yaml_filer = projekter_yaml
     år_fra_yaml = None
     projekter_data = []
-    vejr_svg = None
+    temperatur_dict = {}
     if os.path.exists(_almanak_fil):
         alm = load_yaml(_almanak_fil)
         år_fra_yaml = alm.get("meta", {}).get("år")
-        vejr_svg = generer_vejr_svg(alm.get("temperatur", {}))
+        temperatur_dict = alm.get("temperatur", {})
         # Find alle unikke område_id'er i filen
         område_ids = set()
         for m in alm.get("måneder", []):
@@ -650,6 +651,8 @@ def generer_samlet_almanak(projekter_yaml, almanak_sti, env, alle_planter=None, 
 
     år = år_fra_yaml or år or AKTIVT_ÅR
     måneder  = flet_almanakker(projekter_data, entries_fil=entries_fil)
+    for mån in måneder:
+        mån["vejr"] = generer_måned_svg(temperatur_dict.get(MÅNEDER_LANG[mån["måned"] - 1], {}))
     # Alle planter sorteret alfabetisk til samlet kalender
     alle_planter_sorteret = sorted(alle_planter, key=lambda p: p["navn"])
 
@@ -668,7 +671,6 @@ def generer_samlet_almanak(projekter_yaml, almanak_sti, env, alle_planter=None, 
     output   = skabelon.render(år=år, måneder=måneder,
                                alle_planter=alle_planter_sorteret,
                                måneds_navne=MÅNEDER,
-                               vejr_svg=vejr_svg,
                                **(nav_context or {}))
 
     if skriv_hvis_ændret(almanak_sti, output):
@@ -3560,7 +3562,7 @@ def hent_vejr(år: int, force: bool = False):
         sys.exit(1)
 
     from ruamel.yaml import YAML
-    from ruamel.yaml.comments import CommentedMap
+    from ruamel.yaml.comments import CommentedMap, CommentedSeq
 
     lok = _config.get("lokation")
     if not lok:
@@ -3621,10 +3623,10 @@ def hent_vejr(år: int, force: bool = False):
     for i, dato_str in enumerate(datoer):
         måned_navn = MÅNEDER_LANG[datetime.date.fromisoformat(dato_str).month - 1]
         d = måneds_rå.setdefault(måned_navn, {"mean": [], "min": [], "max": [], "ned": []})
-        if t_mean[i]      is not None: d["mean"].append(t_mean[i])
-        if t_min[i]       is not None: d["min"].append(t_min[i])
-        if t_max[i]       is not None: d["max"].append(t_max[i])
-        if nedbør_raw[i]  is not None: d["ned"].append(nedbør_raw[i])
+        d["mean"].append(t_mean[i])
+        d["min"].append(t_min[i])
+        d["max"].append(t_max[i])
+        d["ned"].append(nedbør_raw[i] if nedbør_raw[i] is not None else 0.0)
 
     ryaml = YAML()
     ryaml.preserve_quotes  = True
@@ -3639,20 +3641,42 @@ def hent_vejr(år: int, force: bool = False):
     temp_sek = alm["temperatur"]
     skrevne  = []
 
+    def _flow_seq(vals):
+        s = CommentedSeq([round(v, 1) if v is not None else None for v in vals])
+        s.fa.set_flow_style()
+        return s
+
     for måned_navn, d in måneds_rå.items():
-        if måned_navn in temp_sek and not force:
+        mean_vals = [v for v in d["mean"] if v is not None]
+        if not mean_vals:
             continue
-        if not d["mean"]:
+
+        existing = temp_sek.get(måned_navn)
+        har_daglige = existing is not None and existing.get("daglige")
+
+        if har_daglige and not force:
             continue
-        m = CommentedMap()
-        m["middel"]    = round(sum(d["mean"]) / len(d["mean"]), 1)
-        m["min"]       = round(min(d["min"]), 1) if d["min"] else None
-        m["max"]       = round(max(d["max"]), 1) if d["max"] else None
-        m["frostdage"] = sum(1 for v in d["min"] if v < 0)
-        m["nedbør_mm"] = round(sum(d["ned"]), 1)
-        temp_sek[måned_navn] = m
+
+        daglige_cm = CommentedMap()
+        daglige_cm["middel"] = _flow_seq(d["mean"])
+        daglige_cm["min"]    = _flow_seq(d["min"])
+        daglige_cm["nedbør"] = _flow_seq(d["ned"])
+
+        if existing is not None and not force:
+            existing["daglige"] = daglige_cm
+            print(f"  ✓ {måned_navn} {år}: daglige data tilføjet")
+        else:
+            min_vals = [v for v in d["min"] if v is not None]
+            max_vals = [v for v in d["max"] if v is not None]
+            m = CommentedMap()
+            m["middel"]    = round(sum(mean_vals) / len(mean_vals), 1)
+            m["min"]       = round(min(min_vals), 1) if min_vals else None
+            m["max"]       = round(max(max_vals), 1) if max_vals else None
+            m["nedbør_mm"] = round(sum(d["ned"]), 1)
+            m["daglige"]   = daglige_cm
+            temp_sek[måned_navn] = m
+            print(f"  ✓ {måned_navn} {år} skrevet")
         skrevne.append(måned_navn)
-        print(f"  ✓ {måned_navn} {år} skrevet")
 
     if not skrevne:
         print("ℹ️  Ingen nye måneder at skrive (brug --force for at overskrive eksisterende)")
