@@ -135,13 +135,13 @@ def valider_referencer(db: dict, bede_yaml_filer: list) -> None:
         yaml_sti = Path(yaml_sti)
         if not yaml_sti.exists():
             continue
-        data = load_yaml(yaml_sti)
+        data = load_bed_yaml(yaml_sti)
         fil = yaml_sti.name
 
         for bed in data.get("bede", []):
             bed_navn = bed.get("navn") or bed.get("id") or "?"
             for zone in bed.get("zoner", []):
-                for kilde in zone.get("afgrøder", [zone]):
+                for kilde in zone.get("afgrøder", []):
                     pid = kilde.get("plante_id")
                     if pid and pid not in db:
                         fejl.append((fil,
@@ -205,7 +205,7 @@ def lav_jinja_env():
         måned = datetime.date.today().month
 
         def _beret(afgrøde, næste=None):
-            pid = afgrøde.get("plante_id") or zone.get("plante_id")
+            pid = afgrøde.get("plante_id")
             p   = opslag_plante(pid) if pid else {}
             if næste:
                 næste_pid  = næste.get("plante_id")
@@ -220,9 +220,9 @@ def lav_jinja_env():
             result["efterfølger"] = efterfølger
             return result
 
-        afgrøder = zone.get("afgrøder")
+        afgrøder = zone.get("afgrøder", [])
         if not afgrøder:
-            return _beret(zone)
+            return _beret({})
         for i, a in enumerate(afgrøder):
             fra, til = a.get("fra", 1), a.get("til", 12)
             aktiv = (fra <= måned <= til) if fra <= til else (måned >= fra or måned <= til)
@@ -289,6 +289,19 @@ def load_yaml(sti):
             sys.exit(1)
 
 
+def normaliser_bed_data(data: dict) -> dict:
+    """Konverterer det simple zone-format (plante_id direkte på zonen) til afgrøder-format."""
+    for bed in data.get("bede", []):
+        for zone in bed.get("zoner", []):
+            if zone.get("plante_id") and not zone.get("afgrøder"):
+                zone["afgrøder"] = [{"plante_id": zone["plante_id"]}]
+    return data
+
+
+def load_bed_yaml(sti) -> dict:
+    return normaliser_bed_data(load_yaml(sti))
+
+
 # ── Hjælpefunktioner ───────────────────────────────────────────────────────────
 
 def skriv_hvis_ændret(sti: Path, indhold: str) -> bool:
@@ -306,14 +319,14 @@ def generer_html(yaml_sti, html_sti, env, alle_planter, nav_context=None,
     _almanak_fil  = Path(almanak_fil)  if almanak_fil  else ALMANAK_FIL
     _entries_fil  = Path(entries_fil)  if entries_fil  else ENTRIES_FIL
     _data_mappe   = Path(data_mappe_sti) if data_mappe_sti else DATA_MAPPE
-    data      = load_yaml(yaml_sti)
+    data      = load_bed_yaml(yaml_sti)
     html_navn = data["meta"].get("html_navn", yaml_sti.replace(".yaml", ""))
 
     # Filtrér planter til kun dem der er relevante for denne side
     relevante_ids = set()
     for bed in data.get("bede", []):
         for zone in bed.get("zoner", []):
-            for kilde in zone.get("afgrøder", [zone]):
+            for kilde in zone.get("afgrøder", []):
                 if kilde.get("plante_id"):
                     relevante_ids.add(kilde["plante_id"])
     for pid in data.get("kalender_planter", []):
@@ -574,7 +587,7 @@ def generer_planter_oversigt(alle_planter, yaml_filer, planter_sti, env, nav_con
     for yaml_sti in yaml_filer:
         if not os.path.exists(yaml_sti):
             continue
-        data  = load_yaml(yaml_sti)
+        data  = load_bed_yaml(yaml_sti)
         meta  = data.get("meta", {})
         titel = meta.get("titel", yaml_sti)
         ikon  = meta.get("ikon", "🌿")
@@ -586,7 +599,7 @@ def generer_planter_oversigt(alle_planter, yaml_filer, planter_sti, env, nav_con
                 gruppe_url[titel] = f"{html_navn}.html"
         for bed in data.get("bede", []):
             for zone in bed.get("zoner", []):
-                for kilde in zone.get("afgrøder", [zone]):
+                for kilde in zone.get("afgrøder", []):
                     pid = kilde.get("plante_id")
                     if pid and pid not in id_til_gruppe:
                         id_til_gruppe[pid] = titel
@@ -634,7 +647,7 @@ def generer_samlet_arkiv(år_liste, arkiv_samlet_sti, env, plante_db=None, nav_c
         for yaml_fil in sorted(år_mappe.glob("*.yaml")):
             if yaml_fil.name in ("almanak.yaml", "entries.yaml", "planter.yaml"):
                 continue
-            data = load_yaml(str(yaml_fil))
+            data = load_bed_yaml(str(yaml_fil))
             meta = data.get("meta", {})
             html_navn = meta.get("html_navn")
             if not html_navn:
@@ -655,10 +668,7 @@ def generer_samlet_arkiv(år_liste, arkiv_samlet_sti, env, plante_db=None, nav_c
                 seen: set = set()
                 planter_i_år: list = []
                 for zone in bed.get("zoner", []):
-                    afgrøder_liste = zone.get("afgrøder") or []
-                    if not afgrøder_liste and zone.get("plante_id"):
-                        afgrøder_liste = [zone]
-                    for afgrøde in afgrøder_liste:
+                    for afgrøde in zone.get("afgrøder", []):
                         plante_id = afgrøde.get("plante_id", "")
                         plante = plante_db.get(plante_id, {})
                         navn = plante.get("navn", plante_id)
@@ -1116,7 +1126,7 @@ def check(yaml_filer, strict=False, farver=False):
               f"eller opret filen med: have område")
             continue
 
-        data  = load_yaml(yaml_sti)
+        data  = load_bed_yaml(yaml_sti)
         meta  = data.get("meta", {})
         titel = meta.get("titel", yaml_sti)
 
@@ -1139,7 +1149,7 @@ def check(yaml_filer, strict=False, farver=False):
         for bed in data.get("bede", []):
             bed_navn = bed.get("navn", "?")
             for zone in bed.get("zoner", []):
-                for kilde in zone.get("afgrøder", [zone]):
+                for kilde in zone.get("afgrøder", []):
                     pid = kilde.get("plante_id", "")
                     if pid and pid not in plante_ids_db:
                         ukendte.append(f"{bed_navn}/{pid}")
@@ -3095,7 +3105,7 @@ def generer_søg_json(out_rod: Path, data_rod: Path, plante_db: dict) -> Path:
             if yaml_fil.name in SPRING:
                 continue
             try:
-                d = load_yaml(str(yaml_fil))
+                d = load_bed_yaml(str(yaml_fil))
                 if not isinstance(d, dict):
                     continue
                 meta = d.get("meta", {})
@@ -3106,12 +3116,11 @@ def generer_søg_json(out_rod: Path, data_rod: Path, plante_db: dict) -> Path:
                 for bed in d.get("bede", []):
                     bed_navn = bed.get("navn") or bed.get("id", "")
                     for zone in bed.get("zoner", []):
-                        pids: set[str] = set()
-                        if zone.get("plante_id"):
-                            pids.add(zone["plante_id"])
-                        for afg in zone.get("afgrøder", []):
-                            if afg.get("plante_id"):
-                                pids.add(afg["plante_id"])
+                        pids: set[str] = {
+                            afg["plante_id"]
+                            for afg in zone.get("afgrøder", [])
+                            if afg.get("plante_id")
+                        }
                         for pid in pids:
                             key = (html_navn, pid)
                             if key not in bedeplaner:

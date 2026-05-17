@@ -118,19 +118,20 @@ bede:
     farve: "#e3f2fd"      # baggrundsfarve i tegningen
     beskrivelse: "..."
     zoner:
+      # Simpelt format — én plante pr. zone
       - navn: "Tomater"
         bredde: 0.5       # relativ bredde (summer ikke nødvendigvis til 1)
         plante_id: money-maker   # matcher id i planter.yaml
         antal: 6          # antal planter vist i tegningen
         note: "Toppes ved 1,5 m"   # kort note vist i tegningen
 
-      # Sædskifte: brug afgrøder i stedet for plante_id
+      # Sædskifte — flere afgrøder i samme zone hen over sæsonen
       - navn: "Kartofler → Majroer"
         bredde: 0.33
         afgrøder:
           - plante_id: solist
-            fra: 4        # måned sædskiftet starter (1–12)
-            til: 7        # måned sædskiftet slutter
+            fra: 4        # måned afgrøden starter (1–12)
+            til: 7        # måned afgrøden slutter
           - plante_id: goldball
             fra: 7
             til: 10
