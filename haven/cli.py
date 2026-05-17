@@ -1930,7 +1930,7 @@ def init_projekt(ja: bool = False):
     # ── 4. Opret undermapper i nuværende mappe ──
     if os.path.exists("data") and (
         any(os.path.isdir(os.path.join("data", f)) for f in os.listdir("data"))
-        or any(f for f in os.listdir("data") if f.endswith(".yaml") and f != "planter.yaml")
+        or any(f.endswith(".yaml") for f in os.listdir("data"))
     ):
         print("❌ 'data/' ser ud til allerede at være initialiseret. Afbryder.")
         sys.exit(1)
