@@ -410,6 +410,76 @@ nav.intern-nav a.aktiv {
 }
 .zone-sheet-overlay.aktiv { display: block; }
 
+/* ── Bed tidsnav ── */
+.bed-tidsnav {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+  font-size: 0.85rem;
+}
+.tidsnav-pil {
+  background: none;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: 0.15rem 0.55rem;
+  cursor: pointer;
+  color: #555;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+.tidsnav-pil:hover { background: #f0f4f0; border-color: #aaa; }
+.tidsnav-måned {
+  font-weight: 600;
+  color: var(--grøn-mørk);
+  min-width: 2.5rem;
+  text-align: center;
+}
+.tidsnav-snapshot {
+  margin-left: 0.25rem;
+  font-size: 0.75rem;
+  color: #bbb;
+  font-style: italic;
+}
+
+/* ── Succession tidslinje i zone-sheet ── */
+.succession-wrap { padding-bottom: 0.1rem; }
+.succession-liste {
+  margin-top: 0.4rem;
+  border-left: 2px solid #d0d0d0;
+  padding-left: 0.5rem;
+  display: flex;
+  flex-direction: column;
+}
+.succession-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.3rem 0.4rem;
+  border-radius: 4px;
+  font-size: 0.82rem;
+  color: #777;
+}
+.succession-item.aktiv {
+  background: #f1f8e9;
+  color: #1a3a1a;
+  font-weight: 600;
+}
+.succession-farve {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  border: 1px solid rgba(0,0,0,0.12);
+}
+.succession-periode {
+  font-size: 0.75rem;
+  color: #aaa;
+  min-width: 4.5rem;
+  font-variant-numeric: tabular-nums;
+}
+.succession-item.aktiv .succession-periode { color: #6a9a6a; }
+
 /* ── Kalender ── */
 .kalender-wrap { overflow-x: auto; }
 table { border-collapse: collapse; width: 100%; font-size: .78rem; }

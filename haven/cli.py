@@ -264,14 +264,44 @@ def lav_jinja_env():
     def splitlines(tekst):
         return str(tekst).splitlines()
 
+    # Filter: succession-JSON til zone-popup (kun hvis flere afgrøder)
+    import json as _json
+    def zone_succession(zone):
+        afgrøder = zone.get("afgrøder", [])
+        if not afgrøder:
+            return ""
+        # Enkelt afgrøde uden datoer: altid aktiv, ingen navigation nødvendig
+        if len(afgrøder) == 1 and not afgrøder[0].get("fra") and not afgrøder[0].get("til"):
+            return ""
+        måned = datetime.date.today().month
+        resultat = []
+        for a in afgrøder:
+            pid  = a.get("plante_id")
+            p    = opslag_plante(pid) if pid else {}
+            fra  = a.get("fra", 1)
+            til  = a.get("til", 12)
+            aktiv = (fra <= måned <= til) if fra <= til else (måned >= fra or måned <= til)
+            resultat.append({
+                "plante":    p.get("navn") or zone.get("navn") or pid or "",
+                "sort":      a.get("sort") or p.get("sort") or "",
+                "farve":     p.get("farve", "#c8e6c9"),
+                "fra":       fra,
+                "til":       til,
+                "fra_navn":  MÅNEDER[fra - 1],
+                "til_navn":  MÅNEDER[til - 1],
+                "aktiv":     aktiv,
+            })
+        return _json.dumps(resultat, ensure_ascii=False)
+
     import markdown as _md
     _md_exts = ["fenced_code"]
-    env.filters["md"]             = lambda t: _md.markdown(str(t), extensions=_md_exts)
-    env.filters["aktiv_afgrøde"]  = aktiv_afgrøde
-    env.filters["kalender_celle"] = kalender_celle
-    env.filters["dato_fmt"]       = dato_fmt
-    env.filters["splitlines"]     = splitlines
-    env.filters["kontrast_farve"] = kontrast_farve
+    env.filters["md"]               = lambda t: _md.markdown(str(t), extensions=_md_exts)
+    env.filters["aktiv_afgrøde"]    = aktiv_afgrøde
+    env.filters["zone_succession"]  = zone_succession
+    env.filters["kalender_celle"]   = kalender_celle
+    env.filters["dato_fmt"]         = dato_fmt
+    env.filters["splitlines"]       = splitlines
+    env.filters["kontrast_farve"]   = kontrast_farve
     return env
 
 
@@ -4112,6 +4142,523 @@ def riv_en_plante_op():
     print("   Kør 'have build' for at opdatere sitet.")
 
 
+def ret_en_plante():
+    """Interaktiv wizard til at rette en zone i et eksisterende bed."""
+    import io
+    import questionary
+    from ruamel.yaml import YAML as RuamelYAML
+
+    ry = RuamelYAML()
+    ry.preserve_quotes  = True
+    ry.default_flow_style = False
+    ry.width = 120
+
+    plante_db = byg_plante_db()
+
+    # ── 1. Vælg område ────────────────────────────────────────────────────────
+    yaml_filer = sorted(
+        f for f in os.listdir(DATA_MAPPE)
+        if f.endswith(".yaml") and f not in {"almanak.yaml", "entries.yaml"}
+    )
+    if not yaml_filer:
+        print(f"❌ Ingen zone-YAML-filer fundet i {DATA_MAPPE}/")
+        sys.exit(1)
+
+    fil_data: dict = {}
+    fil_valg = []
+    for fil in yaml_filer:
+        with open(DATA_MAPPE / fil, encoding="utf-8") as fh:
+            data = ry.load(fh)
+        fil_data[fil] = data
+        meta = data.get("meta", {}) if isinstance(data, dict) else {}
+        titel = meta.get("titel", fil)
+        fil_valg.append(questionary.Choice(title=f"{titel}  ({fil})", value=fil))
+
+    valgt_fil = questionary.select("Hvilket område vil du rette i?", choices=fil_valg).ask()
+    if not valgt_fil:
+        sys.exit(0)
+
+    zone_data = fil_data[valgt_fil]
+
+    # ── 2. Vælg bed ───────────────────────────────────────────────────────────
+    bede = zone_data.get("bede", []) if isinstance(zone_data, dict) else []
+    if not bede:
+        print(f"❌ Ingen bede fundet i {valgt_fil}")
+        sys.exit(1)
+
+    bed_valg = []
+    for bed in bede:
+        bid   = bed.get("id", "?")
+        bnavn = bed.get("navn", bid)
+        antal = len(bed.get("zoner") or [])
+        bed_valg.append(questionary.Choice(
+            title=f"{bnavn}  [{antal} zone{'r' if antal != 1 else ''}]",
+            value=bid,
+        ))
+
+    valgt_bed_id = questionary.select("Hvilket bed vil du rette i?", choices=bed_valg).ask()
+    if not valgt_bed_id:
+        sys.exit(0)
+
+    valgt_bed = next(b for b in bede if b.get("id") == valgt_bed_id)
+    zoner = valgt_bed.get("zoner") or []
+    if not zoner:
+        print(f"❌ Bedet '{valgt_bed.get('navn', valgt_bed_id)}' har ingen zoner.")
+        sys.exit(1)
+
+    # ── 3. Vælg zone ──────────────────────────────────────────────────────────
+    def _zone_label(z):
+        znavn = z.get("navn", "?")
+        pid   = z.get("plante_id")
+        if pid:
+            p = plante_db.get(pid, {})
+            return f"{znavn}  ({p.get('sort') or p.get('navn') or pid})"
+        afg = z.get("afgrøder")
+        if afg:
+            navne = []
+            for a in afg:
+                p = plante_db.get(a.get("plante_id", ""), {})
+                navne.append(p.get("sort") or p.get("navn", a.get("plante_id", "?")))
+            return f"{znavn}  ({' → '.join(navne)})"
+        return znavn
+
+    zone_valg = [
+        questionary.Choice(title=_zone_label(z), value=i)
+        for i, z in enumerate(zoner)
+    ]
+
+    valgt_idx = questionary.select("Hvilken zone vil du rette?", choices=zone_valg).ask()
+    if valgt_idx is None:
+        sys.exit(0)
+
+    valgt_zone = zoner[valgt_idx]
+
+    # ── 4. Indsaml ændringer ──────────────────────────────────────────────────
+    def _valider_måned(v):
+        try:
+            m = int(v)
+        except ValueError:
+            return "Indtast et tal fra 1 til 12"
+        return True if 1 <= m <= 12 else "Måneden skal være mellem 1 og 12"
+
+    def _valider_bredde(v):
+        try:
+            f = float(v.replace(",", "."))
+        except ValueError:
+            return "Indtast et tal, fx 0.25"
+        return True if 0 < f <= 1.0 else "Bredden skal være et tal mellem 0 og 1"
+
+    def _søg_og_vælg_plante():
+        valgt = None
+        while valgt is None:
+            søg = questionary.text("Søg efter plante (navn, sort eller id):").ask()
+            if søg is None:
+                return None
+            hits = _søg_planter(søg, plante_db)
+            if not hits:
+                print(f"  Ingen planter matcher '{søg}'. Prøv igen.")
+                continue
+            if len(hits) == 1:
+                valgt = hits[0]
+            else:
+                labels = [_plante_label(p) for p in hits]
+                valgt_label = questionary.select("Vælg plante:", choices=labels).ask()
+                if not valgt_label:
+                    return None
+                valgt = hits[labels.index(valgt_label)]
+        return valgt
+
+    from ruamel.yaml.comments import CommentedSeq, CommentedMap
+
+    ændr_navn           = None
+    ændr_bredde         = None
+    ændr_pid            = None   # nyt plante_id (simpel zone, ingen datoer)
+    ændr_konverter      = None   # {pid, fra, til} — konvertér simpel → afgrøde-format
+    ændr_afgrøde        = None   # {idx, pid, fra, til} — ret én afgrøde i sædskifte
+
+    # Navn
+    gammelt_navn = valgt_zone.get("navn", "")
+    nyt_navn = (questionary.text("Zone-navn:", default=gammelt_navn).ask() or "").strip()
+    if nyt_navn is None:
+        sys.exit(0)
+    if nyt_navn and nyt_navn != gammelt_navn:
+        ændr_navn = nyt_navn
+
+    # Bredde
+    gammel_bredde = valgt_zone.get("bredde", "")
+    ny_bredde_str = questionary.text(
+        "Bredde (0–1):",
+        default=str(gammel_bredde),
+        validate=_valider_bredde,
+    ).ask()
+    if ny_bredde_str is None:
+        sys.exit(0)
+    ny_bredde = round(float(ny_bredde_str.replace(",", ".")), 4)
+    if ny_bredde != gammel_bredde:
+        ændr_bredde = ny_bredde
+
+    # ── Plante og datoer — simpel zone (plante_id) ───────────────────────────
+    if valgt_zone.get("plante_id"):
+        eks_p    = plante_db.get(valgt_zone["plante_id"], {})
+        eks_navn = eks_p.get("sort") or eks_p.get("navn", valgt_zone["plante_id"])
+
+        # Skift plante?
+        ny_pid_til_brug = valgt_zone["plante_id"]
+        if questionary.confirm(f"Skift plante (nu: {eks_navn})?", default=False).ask():
+            ny_plante = _søg_og_vælg_plante()
+            if ny_plante is None:
+                sys.exit(0)
+            ny_pid_til_brug = ny_plante["id"]
+            ændr_pid = ny_pid_til_brug
+
+        # Tilføj periode (fra/til)?
+        har_periode = questionary.confirm(
+            "Tilføj såtid/planteperiode (fra/til måneder)?",
+            default=False,
+        ).ask()
+        if har_periode is None:
+            sys.exit(0)
+        if har_periode:
+            fra_str = questionary.text(
+                f"Fra hvilken måned er planten i jorden? (1–12):",
+                validate=_valider_måned,
+            ).ask()
+            if fra_str is None:
+                sys.exit(0)
+            til_str = questionary.text(
+                f"Til hvilken måned er planten i jorden? (1–12):",
+                validate=_valider_måned,
+            ).ask()
+            if til_str is None:
+                sys.exit(0)
+            ændr_konverter = {"pid": ny_pid_til_brug, "fra": int(fra_str), "til": int(til_str)}
+            ændr_pid = None  # håndteres via ændr_konverter
+
+    # ── Afgrøde og datoer — sædskifte-zone (afgrøder) ───────────────────────
+    elif valgt_zone.get("afgrøder"):
+        afgrøder = valgt_zone["afgrøder"]
+
+        afgrøde_valg = []
+        for i, a in enumerate(afgrøder):
+            ap     = plante_db.get(a.get("plante_id", ""), {})
+            apnavn = ap.get("sort") or ap.get("navn", a.get("plante_id", "?"))
+            fra, til = a.get("fra"), a.get("til")
+            label  = f"{apnavn}  ({MÅNEDER[fra-1]}–{MÅNEDER[til-1]})" if fra and til else apnavn
+            afgrøde_valg.append(questionary.Choice(title=label, value=i))
+
+        afgrøde_idx = questionary.select(
+            "Hvilken afgrøde vil du redigere?", choices=afgrøde_valg
+        ).ask()
+        if afgrøde_idx is None:
+            sys.exit(0)
+
+        afg        = afgrøder[afgrøde_idx]
+        eks_ap     = plante_db.get(afg.get("plante_id", ""), {})
+        eks_apnavn = eks_ap.get("sort") or eks_ap.get("navn", afg.get("plante_id", "?"))
+
+        ny_apid = afg.get("plante_id")
+        if questionary.confirm(f"Skift plante (nu: {eks_apnavn})?", default=False).ask():
+            ny_plante = _søg_og_vælg_plante()
+            if ny_plante is None:
+                sys.exit(0)
+            ny_apid = ny_plante["id"]
+
+        fra_str = questionary.text(
+            "Fra måned (1–12):",
+            default=str(afg.get("fra", "")),
+            validate=_valider_måned,
+        ).ask()
+        if fra_str is None:
+            sys.exit(0)
+        til_str = questionary.text(
+            "Til måned (1–12):",
+            default=str(afg.get("til", "")),
+            validate=_valider_måned,
+        ).ask()
+        if til_str is None:
+            sys.exit(0)
+
+        ændr_afgrøde = {"idx": afgrøde_idx, "pid": ny_apid,
+                        "fra": int(fra_str), "til": int(til_str)}
+
+    # ── 5. Anvend ændringer på in-memory struktur ─────────────────────────────
+    if ændr_navn   is not None: valgt_zone["navn"]      = ændr_navn
+    if ændr_bredde is not None: valgt_zone["bredde"]    = ændr_bredde
+
+    if ændr_konverter is not None:
+        # Konvertér simpel plante_id → afgrøde-format med periode
+        a = CommentedMap()
+        a["plante_id"] = ændr_konverter["pid"]
+        a["fra"]       = ændr_konverter["fra"]
+        a["til"]       = ændr_konverter["til"]
+        ny_afgrøder = CommentedSeq()
+        ny_afgrøder.append(a)
+        del valgt_zone["plante_id"]
+        if "antal" in valgt_zone:
+            del valgt_zone["antal"]
+        valgt_zone["afgrøder"] = ny_afgrøder
+    elif ændr_pid is not None:
+        valgt_zone["plante_id"] = ændr_pid
+
+    if ændr_afgrøde is not None:
+        afg = valgt_zone["afgrøder"][ændr_afgrøde["idx"]]
+        afg["plante_id"] = ændr_afgrøde["pid"]
+        afg["fra"]       = ændr_afgrøde["fra"]
+        afg["til"]       = ændr_afgrøde["til"]
+
+    # ── 6. Preview og bekræft ─────────────────────────────────────────────────
+    buf = io.StringIO()
+    ry.dump({"__z__": valgt_zone}, buf)
+    zone_lines = [
+        (l[2:] if l.startswith("  ") else l)
+        for l in buf.getvalue().splitlines()
+        if not l.startswith("__z__:")
+    ]
+    print("\n── YAML-preview ──────────────────────────────────────────")
+    print("\n".join(zone_lines))
+    print("──────────────────────────────────────────────────────────\n")
+
+    ok = questionary.confirm(
+        f"Gem ændringer til zone '{valgt_zone.get('navn', '?')}' "
+        f"i bed '{valgt_bed.get('navn', valgt_bed_id)}'?",
+        default=True,
+    ).ask()
+    if not ok:
+        print("Afbrudt — ingen ændringer gemt.")
+        sys.exit(0)
+
+    # ── 7. Skriv til YAML-fil ─────────────────────────────────────────────────
+    with open(DATA_MAPPE / valgt_fil, "w", encoding="utf-8") as fh:
+        ry.dump(zone_data, fh)
+
+    print(f"✅ Zone '{valgt_zone.get('navn', '?')}' opdateret i '{valgt_bed.get('navn', valgt_bed_id)}'")
+    print("   Kør 'have build' for at opdatere sitet.")
+
+
+def ret_bed():
+    """Interaktiv wizard til at omfordele zone-bredder og tilføje nye zoner i et bed."""
+    import questionary
+    from ruamel.yaml import YAML as RuamelYAML
+    from ruamel.yaml.comments import CommentedSeq, CommentedMap
+
+    ry = RuamelYAML()
+    ry.preserve_quotes   = True
+    ry.default_flow_style = False
+    ry.width = 120
+
+    plante_db = byg_plante_db()
+
+    # ── 1. Vælg område ────────────────────────────────────────────────────────
+    yaml_filer = sorted(
+        f for f in os.listdir(DATA_MAPPE)
+        if f.endswith(".yaml") and f not in {"almanak.yaml", "entries.yaml"}
+    )
+    if not yaml_filer:
+        print(f"❌ Ingen zone-YAML-filer fundet i {DATA_MAPPE}/")
+        sys.exit(1)
+
+    fil_data: dict = {}
+    fil_valg = []
+    for fil in yaml_filer:
+        with open(DATA_MAPPE / fil, encoding="utf-8") as fh:
+            data = ry.load(fh)
+        fil_data[fil] = data
+        meta = data.get("meta", {}) if isinstance(data, dict) else {}
+        titel = meta.get("titel", fil)
+        fil_valg.append(questionary.Choice(title=f"{titel}  ({fil})", value=fil))
+
+    valgt_fil = questionary.select("Hvilket område vil du rette i?", choices=fil_valg).ask()
+    if not valgt_fil:
+        sys.exit(0)
+
+    zone_data = fil_data[valgt_fil]
+
+    # ── 2. Vælg bed ───────────────────────────────────────────────────────────
+    bede = zone_data.get("bede", []) if isinstance(zone_data, dict) else []
+    if not bede:
+        print(f"❌ Ingen bede fundet i {valgt_fil}")
+        sys.exit(1)
+
+    bed_valg = []
+    for bed in bede:
+        bid   = bed.get("id", "?")
+        bnavn = bed.get("navn", bid)
+        bcm   = bed.get("bredde_cm", "?")
+        dcm   = bed.get("dybde_cm",  "?")
+        antal = len(bed.get("zoner") or [])
+        bed_valg.append(questionary.Choice(
+            title=f"{bnavn}  [{bcm}×{dcm} cm — {antal} zone{'r' if antal != 1 else ''}]",
+            value=bid,
+        ))
+
+    valgt_bed_id = questionary.select("Hvilket bed vil du rette?", choices=bed_valg).ask()
+    if not valgt_bed_id:
+        sys.exit(0)
+
+    valgt_bed = next(b for b in bede if b.get("id") == valgt_bed_id)
+    if "zoner" not in valgt_bed or valgt_bed["zoner"] is None:
+        valgt_bed["zoner"] = CommentedSeq()
+    zoner = valgt_bed["zoner"]
+
+    # ── 3. Vis nuværende zoner ────────────────────────────────────────────────
+    def _zone_info(z, i, mærke=""):
+        znavn  = z.get("navn", f"Zone {i+1}")
+        bredde = z.get("bredde")
+        bredde_txt = f"{bredde:.2f} — {bredde*100:.0f}%" if bredde else "—"
+        pid = z.get("plante_id")
+        if pid:
+            p = plante_db.get(pid, {})
+            pnavn = p.get("sort") or p.get("navn") or pid
+            return f"  {i+1}. {znavn:<28} ({pnavn})  [{bredde_txt}]{mærke}"
+        afg = z.get("afgrøder")
+        if afg:
+            navne = []
+            for a in afg:
+                p = plante_db.get(a.get("plante_id", ""), {})
+                navne.append(p.get("sort") or p.get("navn", a.get("plante_id", "?")))
+            return f"  {i+1}. {znavn:<28} ({' → '.join(navne)})  [{bredde_txt}]{mærke}"
+        return f"  {i+1}. {znavn:<28} [{bredde_txt}]{mærke}"
+
+    print(f"\nNuværende zoner i '{valgt_bed.get('navn', valgt_bed_id)}':")
+    for i, z in enumerate(zoner):
+        print(_zone_info(z, i))
+    print()
+
+    # ── 4. Tilføj nye zoner (loop) ────────────────────────────────────────────
+    def _søg_og_vælg_plante():
+        valgt = None
+        while valgt is None:
+            søg = questionary.text("Søg efter plante (navn, sort eller id):").ask()
+            if søg is None:
+                return None
+            hits = _søg_planter(søg, plante_db)
+            if not hits:
+                print(f"  Ingen planter matcher '{søg}'. Prøv igen.")
+                continue
+            if len(hits) == 1:
+                valgt = hits[0]
+            else:
+                labels = [_plante_label(p) for p in hits]
+                valgt_label = questionary.select("Vælg plante:", choices=labels).ask()
+                if not valgt_label:
+                    return None
+                valgt = hits[labels.index(valgt_label)]
+        return valgt
+
+    nye_zoner: list = []
+    while True:
+        tilføj = questionary.confirm("Tilføj en ny zone?", default=False).ask()
+        if not tilføj:
+            break
+
+        ny_navn = (questionary.text("Navn på ny zone:").ask() or "").strip()
+        if not ny_navn:
+            sys.exit(0)
+
+        med_plante = questionary.confirm(
+            "Tilføj plante nu? (ellers: brug 'have plant-en-plante' bagefter)",
+            default=True,
+        ).ask()
+        if med_plante is None:
+            sys.exit(0)
+
+        ny_zone = CommentedMap()
+        ny_zone["navn"] = ny_navn
+
+        if med_plante:
+            ny_plante = _søg_og_vælg_plante()
+            if ny_plante is None:
+                sys.exit(0)
+            ny_zone["plante_id"] = ny_plante["id"]
+
+        nye_zoner.append(ny_zone)
+        print(f"  ✓ '{ny_navn}' tilføjet")
+
+    n_eksisterende = len(zoner)
+    alle_zoner     = list(zoner) + nye_zoner
+    n              = len(alle_zoner)
+
+    if n == 0:
+        print("❌ Ingen zoner at fordele.")
+        sys.exit(1)
+
+    # ── 5. Ratio-input ────────────────────────────────────────────────────────
+    print(f"\nAlle {n} zoner — angiv nyt ratio:")
+    for i, z in enumerate(alle_zoner):
+        mærke = "  ← ny" if i >= n_eksisterende else ""
+        print(_zone_info(z, i, mærke))
+
+    # Byg forslag ud fra nuværende bredder (afrundet til hele tal)
+    eks_bredder = [z.get("bredde", 0) for z in zoner]
+    if all(b > 0 for b in eks_bredder):
+        eks_sum = sum(eks_bredder)
+        forslag_tal = [round(b / eks_sum * 100) for b in eks_bredder]
+        forslag_tal += [round(100 / n)] * len(nye_zoner)
+    else:
+        forslag_tal = [1] * n
+    default_ratio = ":".join(str(t) for t in forslag_tal)
+
+    def _valider_ratio(v):
+        parts = [p.strip() for p in v.replace(" ", ":").split(":") if p.strip()]
+        if len(parts) != n:
+            return f"Angiv præcis {n} værdier (én per zone), adskilt af ':'"
+        try:
+            vals = [float(p.replace(",", ".")) for p in parts]
+        except ValueError:
+            return "Alle værdier skal være tal"
+        if any(val <= 0 for val in vals):
+            return "Alle værdier skal være positive"
+        return True
+
+    ratio_str = questionary.text(
+        f"Ratio (fx '{default_ratio}'):",
+        default=default_ratio,
+        validate=_valider_ratio,
+    ).ask()
+    if ratio_str is None:
+        sys.exit(0)
+
+    parts  = [p.strip() for p in ratio_str.replace(" ", ":").split(":") if p.strip()]
+    vals   = [float(p.replace(",", ".")) for p in parts]
+    total  = sum(vals)
+    bredder = [round(v / total, 4) for v in vals]
+    # Ret afrundingsfejl så summen er præcis 1.0
+    rest = round(1.0 - sum(bredder), 4)
+    if rest:
+        bredder[-1] = round(bredder[-1] + rest, 4)
+
+    # ── 6. Preview ────────────────────────────────────────────────────────────
+    print("\n── Ny fordeling ──────────────────────────────────────────")
+    for i, z in enumerate(alle_zoner):
+        znavn  = z.get("navn", f"Zone {i+1}")
+        b      = bredder[i]
+        mærke  = "  ← ny" if i >= n_eksisterende else ""
+        print(f"  {i+1}. {znavn:<30} {b:.4f}  ({b*100:.1f}%){mærke}")
+    print("──────────────────────────────────────────────────────────\n")
+
+    ok = questionary.confirm(
+        f"Gem ny fordeling i '{valgt_bed.get('navn', valgt_bed_id)}'?",
+        default=True,
+    ).ask()
+    if not ok:
+        print("Afbrudt — ingen ændringer gemt.")
+        sys.exit(0)
+
+    # ── 7. Anvend og skriv ────────────────────────────────────────────────────
+    for i, z in enumerate(alle_zoner):
+        z["bredde"] = bredder[i]
+    for z in nye_zoner:
+        zoner.append(z)
+
+    with open(DATA_MAPPE / valgt_fil, "w", encoding="utf-8") as fh:
+        ry.dump(zone_data, fh)
+
+    print(f"✅ '{valgt_bed.get('navn', valgt_bed_id)}' opdateret")
+    if nye_zoner:
+        print(f"   {len(nye_zoner)} ny{'e' if len(nye_zoner) > 1 else ''} zone{'r' if len(nye_zoner) > 1 else ''} tilføjet")
+    print("   Kør 'have build' for at opdatere sitet.")
+
+
 # ── Vejrdata ───────────────────────────────────────────────────────────────────
 
 def hent_vejr(år: int, force: bool = False):
@@ -4310,6 +4857,10 @@ def main():
 
     subparsers.add_parser("riv-en-plante-op", help="Fjern en zone/plante fra et eksisterende bed (interaktiv wizard)")
 
+    subparsers.add_parser("ret-en-plante", help="Ret en eksisterende zone/plante i et bed (interaktiv wizard)")
+
+    subparsers.add_parser("ret-bed", help="Omfordel zone-bredder og tilføj nye zoner med ratio (interaktiv wizard)")
+
     # Subkommando: build (alias for default)
     subparsers.add_parser("build", help="Generer alle HTML-sider (alias for: have uden argumenter)")
 
@@ -4369,6 +4920,14 @@ def main():
 
     if args.kommando == "riv-en-plante-op":
         riv_en_plante_op()
+        sys.exit(0)
+
+    if args.kommando == "ret-en-plante":
+        ret_en_plante()
+        sys.exit(0)
+
+    if args.kommando == "ret-bed":
+        ret_bed()
         sys.exit(0)
 
     if args.kommando == "hent-vejr":

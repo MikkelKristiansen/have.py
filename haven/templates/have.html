@@ -31,6 +31,12 @@
 {# ── Bedoversigt — vises kun hvis der er bede defineret ── #}
 {% if bede %}
 <h2 id="bedoversigt">Bedoversigt</h2>
+<div class="bed-tidsnav">
+  <button class="tidsnav-pil" id="prevMåned" aria-label="Forrige måned">←</button>
+  <span class="tidsnav-måned" id="månedLabel"></span>
+  <button class="tidsnav-pil" id="nextMåned" aria-label="Næste måned">→</button>
+  <span class="tidsnav-snapshot">Øjebliksbillede</span>
+</div>
 <div class="bede-container">
 {% for bed in bede %}
   {% set max_bredde = bede | map(attribute='bredde_cm') | max %}
@@ -62,6 +68,7 @@
              data-noter="{{ zone.note or '' }}"
              data-bredde="{{ zone.bredde }}"
              data-bed-bredde="{{ bed.bredde_cm }}"
+             data-succession="{{ zone | zone_succession | e }}"
              aria-label="{{ ap.plante }}"
              role="button"
              tabindex="0">
@@ -190,11 +197,91 @@
 </div>
 <script>
 (function () {
+  // ── Popup ──
   const sheet   = document.getElementById("zoneSheet");
   const overlay = document.getElementById("zoneOverlay");
   const navn    = document.getElementById("sheetNavn");
   const stribe  = document.getElementById("sheetStribe");
   const indhold = document.getElementById("sheetIndhold");
+
+  // ── Månedsnavigation ──
+  let månedIdx = new Date().getMonth() + 1;
+  const MND = ["Jan","Feb","Mar","Apr","Maj","Jun","Jul","Aug","Sep","Okt","Nov","Dec"];
+
+  function kontrastrFarve(hex) {
+    hex = hex.replace("#","");
+    const r=parseInt(hex.slice(0,2),16)/255, g=parseInt(hex.slice(2,4),16)/255, b=parseInt(hex.slice(4,6),16)/255;
+    const lin = c => c<=0.04045 ? c/12.92 : Math.pow((c+0.055)/1.055, 2.4);
+    return (0.2126*lin(r)+0.7152*lin(g)+0.0722*lin(b)) > 0.179 ? "#000000" : "#ffffff";
+  }
+
+  const TOM_FARVE = "#e8e0d4";
+
+  function hexToRgba(hex, alpha) {
+    hex = hex.replace("#","");
+    const r=parseInt(hex.slice(0,2),16), g=parseInt(hex.slice(2,4),16), b=parseInt(hex.slice(4,6),16);
+    return `rgba(${r},${g},${b},${alpha})`;
+  }
+
+  function aktivForMåned(afg, m) {
+    for (const a of afg) {
+      const ok = a.fra <= a.til ? (a.fra<=m && m<=a.til) : (m>=a.fra || m<=a.til);
+      if (ok) return a;
+    }
+    return null;
+  }
+
+  function næsteForMåned(afg, m) {
+    let næste = null;
+    for (const a of afg) {
+      if (a.fra > m && (!næste || a.fra < næste.fra)) næste = a;
+    }
+    return næste;
+  }
+
+  function opdaterBede() {
+    document.getElementById("månedLabel").textContent = MND[månedIdx-1];
+    document.querySelectorAll(".zone").forEach(zone => {
+      if (!zone.dataset.succession) return;
+      let afg; try { afg = JSON.parse(zone.dataset.succession); } catch(e) { return; }
+      if (!afg || !afg.length) return;
+
+      const navnEl = zone.querySelector(".zone-navn");
+      const sortEl = zone.querySelector(".zone-sort");
+      const efEl   = zone.querySelector(".zone-efterfølger");
+      if (efEl) efEl.style.display = "none";
+
+      const a = aktivForMåned(afg, månedIdx);
+      if (a) {
+        zone.style.background = a.farve;
+        const tc = kontrastrFarve(a.farve);
+        zone.querySelectorAll(".zone-navn,.zone-sort,.zone-antal,.zone-note")
+            .forEach(el => el.style.color = tc);
+        if (navnEl) navnEl.textContent = a.plante;
+        if (sortEl) { sortEl.textContent = a.sort || ""; sortEl.style.display = a.sort ? "" : "none"; }
+        zone.dataset.navn  = a.plante;
+        zone.dataset.sort  = a.sort || "";
+        zone.dataset.farve = a.farve;
+      } else {
+        const næste = næsteForMåned(afg, månedIdx);
+        if (næste) {
+          zone.style.background = hexToRgba(næste.farve, 0.22);
+          if (navnEl) { navnEl.textContent = næste.plante; navnEl.style.color = "#888"; }
+          if (sortEl) { sortEl.textContent = `fra ${næste.fra_navn}`; sortEl.style.display = ""; sortEl.style.color = "#aaa"; }
+          zone.dataset.navn  = næste.plante;
+          zone.dataset.sort  = næste.sort || "";
+          zone.dataset.farve = næste.farve;
+        } else {
+          zone.style.background = TOM_FARVE;
+          if (navnEl) { navnEl.textContent = "—"; navnEl.style.color = "#bbb"; }
+          if (sortEl) { sortEl.textContent = ""; sortEl.style.display = "none"; }
+          zone.dataset.navn  = "—";
+          zone.dataset.sort  = "";
+          zone.dataset.farve = TOM_FARVE;
+        }
+      }
+    });
+  }
 
   function åbn(zone) {
     const d = zone.dataset;
@@ -203,12 +290,34 @@
     const bredde_cm = d.bredde && d.bedBredde
       ? Math.round(parseFloat(d.bredde) * parseFloat(d.bedBredde))
       : null;
+
+    let successionHTML = "";
+    if (d.succession) {
+      try {
+        const afg = JSON.parse(d.succession);
+        const aktiv = aktivForMåned(afg, månedIdx);
+        successionHTML =
+          `<div class="zone-sheet-felt succession-wrap"><strong>Afgrøder i sæsonen:</strong>` +
+          `<div class="succession-liste">` +
+          afg.map(a => {
+            const sort = a.sort ? ` <em>${a.sort}</em>` : "";
+            return `<div class="succession-item${a === aktiv ? " aktiv" : ""}">` +
+              `<span class="succession-farve" style="background:${a.farve}"></span>` +
+              `<span class="succession-periode">${a.fra_navn}–${a.til_navn}</span>` +
+              `<span class="succession-plante">${a.plante}${sort}</span>` +
+              `</div>`;
+          }).join("") +
+          `</div></div>`;
+      } catch(e) {}
+    }
+
     const felter = [
-      bredde_cm     && `<div class="zone-sheet-felt"><strong>Bredde:</strong> ${bredde_cm} cm</div>`,
-      d.sort        && `<div class="zone-sheet-felt"><strong>Sort:</strong> ${d.sort}</div>`,
-      d.antal       && `<div class="zone-sheet-felt"><strong>Antal:</strong> ${d.antal} stk.</div>`,
-      d.efterfølger && `<div class="zone-sheet-felt"><strong>Efterfølger:</strong> ${d.efterfølger}</div>`,
-      d.noter       && `<div class="zone-sheet-felt"><strong>Noter:</strong> ${d.noter}</div>`,
+      successionHTML,
+      bredde_cm                        && `<div class="zone-sheet-felt"><strong>Bredde:</strong> ${bredde_cm} cm</div>`,
+      !successionHTML && d.sort        && `<div class="zone-sheet-felt"><strong>Sort:</strong> ${d.sort}</div>`,
+      !successionHTML && d.efterfølger && `<div class="zone-sheet-felt"><strong>Efterfølger:</strong> ${d.efterfølger}</div>`,
+      d.antal                          && `<div class="zone-sheet-felt"><strong>Antal:</strong> ${d.antal} stk.</div>`,
+      d.noter                          && `<div class="zone-sheet-felt"><strong>Noter:</strong> ${d.noter}</div>`,
     ].filter(Boolean).join("");
     indhold.innerHTML = felter || "<div class='zone-sheet-felt'>Ingen yderligere info.</div>";
     sheet.classList.add("aktiv");
@@ -225,10 +334,20 @@
     z.addEventListener("click",   () => åbn(z));
     z.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") åbn(z); });
   });
-
   document.getElementById("sheetLuk").addEventListener("click", luk);
   overlay.addEventListener("click", luk);
   document.addEventListener("keydown", e => { if (e.key === "Escape") luk(); });
+
+  document.getElementById("prevMåned").addEventListener("click", () => {
+    månedIdx = månedIdx === 1 ? 12 : månedIdx - 1;
+    opdaterBede();
+  });
+  document.getElementById("nextMåned").addEventListener("click", () => {
+    månedIdx = månedIdx === 12 ? 1 : månedIdx + 1;
+    opdaterBede();
+  });
+
+  opdaterBede();
 })();
 </script>
 {% endif %}
