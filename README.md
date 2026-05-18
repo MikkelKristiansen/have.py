@@ -41,6 +41,9 @@ have riv-en-plante-op   # fjern en zone fra et bed (interaktiv wizard)
 have ret-en-plante      # ret en zone i et bed (interaktiv wizard)
 have ret-bed            # omfordel zone-bredder i et bed (interaktiv wizard)
 have hent-fotos         # hent plantefotos fra Wikimedia Commons
+have hent-havefotos     # tjek og synkronisér almanakfotos i entries
+have hent-vejr          # hent historisk vejrdata fra Open-Meteo til almanak.yaml
+have område             # opret nyt haveafsnit i aktuelle projekt
 have deploy             # byg + upload til server
 ```
 
