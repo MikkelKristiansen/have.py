@@ -154,6 +154,28 @@ def main():
               f"{len(alle_filer)} filer i fotos/  |  "
               f"{len(ubrugte)} uregistrerede")
 
+    # ── Optimer overstoere fotos ──────────────────────────────────────────────────
+    if FOTOS_MAPPE.exists():
+        from PIL import Image
+        from .fotos import optimer_foto
+        BILLEDE_EKST = {".jpg", ".jpeg", ".png", ".webp"}
+        optimeret = []
+        for fil in sorted(FOTOS_MAPPE.iterdir()):
+            if not fil.is_file() or fil.suffix.lower() not in BILLEDE_EKST:
+                continue
+            try:
+                with Image.open(fil) as img:
+                    w, h = img.size
+                if w <= 1200 and h <= 1200:
+                    continue
+                optimer_foto(fil)
+                optimeret.append(fil.name)
+                print(f"  🗜  {fil.name} optimeret ({w}×{h} → maks 1200px)")
+            except Exception as e:
+                print(f"  ⚠️  {fil.name}: kunne ikke optimere: {e}")
+        if optimeret:
+            print(f"\n✅ {len(optimeret)} foto(s) optimeret og gemt")
+
 
 if __name__ == "__main__":
     main()

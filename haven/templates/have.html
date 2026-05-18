@@ -72,6 +72,7 @@
              aria-label="{{ ap.plante }}"
              role="button"
              tabindex="0">
+          <span class="zone-pil" style="color:{{ ktfarve }};">›</span>
           <span class="zone-navn" style="color:{{ ktfarve }};">{{ ap.plante }}</span>
           {% if ap.sort %}<span class="zone-sort" style="color:{{ ktfarve }};">{{ ap.sort }}</span>{% endif %}
           {% if ap.antal %}<span class="zone-antal" style="color:{{ ktfarve }};">× {{ ap.antal }}</span>{% endif %}

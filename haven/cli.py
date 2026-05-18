@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 # PYTHON_ARGCOMPLETE_OK
 """
-have.py — Generer HTML-plan for køkkenhaven via Jinja2-skabeloner.
+haven — Generer HTML-plan for køkkenhaven via Jinja2-skabeloner.
 Læser YAML-filer og producerer HTML til webbrug og print via browser.
 
 Brug:
-  python3 have.py                    # generer HTML lokalt
-  python3 have.py min.yaml           # brug alternativ YAML-fil
+  have build                         # generer HTML lokalt
+  have deploy                        # byg og upload til server
 """
 
 import sys
@@ -225,11 +225,21 @@ def lav_jinja_env():
         afgrøder = zone.get("afgrøder", [])
         if not afgrøder:
             return _beret({})
-        for i, a in enumerate(afgrøder):
+
+        def _er_aktiv(a):
             fra, til = a.get("fra", 1), a.get("til", 12)
-            aktiv = (fra <= måned <= til) if fra <= til else (måned >= fra or måned <= til)
-            if aktiv:
-                return _beret(a, afgrøder[i + 1] if i + 1 < len(afgrøder) else None)
+            return (fra <= måned <= til) if fra <= til else (måned >= fra or måned <= til)
+
+        aktive = [(i, a) for i, a in enumerate(afgrøder) if _er_aktiv(a)]
+        if aktive:
+            # Sidst-starter-vinder: ved overlap foretrækkes den nyeste afgrøde.
+            # Ved uafgjort (samme fra-måned) vinder den første i listen.
+            best_i, best_a = aktive[0]
+            for i, a in aktive[1:]:
+                if a.get("fra", 1) > best_a.get("fra", 1):
+                    best_i, best_a = i, a
+            return _beret(best_a, afgrøder[best_i + 1] if best_i + 1 < len(afgrøder) else None)
+
         return _beret(afgrøder[0], afgrøder[1] if len(afgrøder) > 1 else None)
 
     # Filter: kalendercelleinfo for én plante og én måned
@@ -806,6 +816,8 @@ def generer_samlet_arkiv(år_liste, arkiv_samlet_sti, env, plante_db=None, nav_c
         if not år_mappe.is_dir():
             continue
         for yaml_fil in sorted(år_mappe.glob("*.yaml")):
+            if yaml_fil.name.startswith("."):
+                continue
             if yaml_fil.name in ("almanak.yaml", "entries.yaml", "planter.yaml"):
                 continue
             data = load_bed_yaml(str(yaml_fil))
@@ -1220,7 +1232,7 @@ def check(yaml_filer, strict=False, farver=False):
         W(f"{len(mangler_latin)} planter mangler latin-felt "
           f"({', '.join(p.get('id','?') for p in mangler_latin[:5])}"
           f"{'…' if len(mangler_latin) > 5 else ''}) — "
-          f"hent_plantefotos.py kan ikke søge dem")
+          f"have hent-fotos kan ikke søge dem")
     else:
         OK(f"Alle {len(alle_planter)} planter har latin-felt")
 
@@ -1289,8 +1301,8 @@ def check(yaml_filer, strict=False, farver=False):
 
     for yaml_sti in yaml_filer:
         if not os.path.isfile(yaml_sti):
-            E(f"{yaml_sti} mangler — ret YAML_FILER_DEFAULT i have.py "
-              f"eller opret filen med: have område")
+            E(f"{yaml_sti} mangler — ret bede-listen i haven.yaml "
+              f"eller opret filen med: have ny-bed")
             continue
 
         data  = load_bed_yaml(yaml_sti)
@@ -1309,7 +1321,7 @@ def check(yaml_filer, strict=False, farver=False):
         meta_år = meta.get("år")
         if meta_år and meta_år != AKTIVT_ÅR:
             W(f"{yaml_sti}: meta.år={meta_år} men AKTIVT_ÅR={AKTIVT_ÅR} — "
-              f"opdatér meta.år i filen eller AKTIVT_ÅR i have.py")
+              f"opdatér meta.år i filen eller aktivt_år i haven.yaml")
 
         # plante_id krydsreferencer
         ukendte = []
@@ -1867,7 +1879,7 @@ def _find_yaml_filer():
         filer = sorted(
             os.path.join(DATA_MAPPE, f)
             for f in os.listdir(DATA_MAPPE)
-            if f.endswith(".yaml") and f not in SYSTEM_FILER
+            if f.endswith(".yaml") and not f.startswith(".") and f not in SYSTEM_FILER
             and os.path.isfile(os.path.join(DATA_MAPPE, f))
         )
         if filer:
@@ -2138,7 +2150,7 @@ def nyt_år(nyt_år_num: int):
     SPRING_OVER = {"entries.yaml"}
     kopierede = []
     for fil in sorted(os.listdir(fra_mappe)):
-        if not fil.endswith(".yaml") or fil in SPRING_OVER:
+        if not fil.endswith(".yaml") or fil.startswith(".") or fil in SPRING_OVER:
             continue
         kilde = os.path.join(fra_mappe, fil)
         mål   = os.path.join(til_mappe, fil)
@@ -2206,7 +2218,7 @@ def _regenerer_gl_år_sider(gl_år: int, år_liste: list, aktivt_år: int,
 
     gl_yaml_filer = sorted([
         str(gl_data / f) for f in os.listdir(gl_data_sti)
-        if f.endswith(".yaml")
+        if f.endswith(".yaml") and not f.startswith(".")
         and f not in ("almanak.yaml", "entries.yaml")
         and os.path.isfile(str(gl_data / f))
     ])
@@ -2535,7 +2547,7 @@ def generer_alle(yaml_filer=None) -> list:
     for yaml_sti in yaml_filer:
         if not os.path.isfile(yaml_sti):
             print(f"❌ {yaml_sti} mangler — springer over "
-                  f"(ret YAML_FILER_DEFAULT eller kør: have område)",
+                  f"(ret bede-listen i haven.yaml eller kør: have ny-bed)",
                   file=sys.stderr)
             continue
         data      = load_yaml(yaml_sti)
@@ -5145,9 +5157,9 @@ def main():
         sys.exit(0)
 
     parser = argparse.ArgumentParser(
-        description="have.py — generer HTML + indeks for hele haven.",
+        description="have — generer HTML + indeks for hele haven.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="Eksempler:\n  python3 have.py\n  python3 have.py deploy\n  python3 have.py init"
+        epilog="Eksempler:\n  have build\n  have deploy\n  have init\n  have check"
     )
     parser.add_argument("--version", action="version",
                         version=f"have {__version__}")
@@ -5290,11 +5302,12 @@ def main():
         import subprocess as _sp
 
         def _byg():
-            _sp.run(["python", "have.py"])
+            _sp.run(["have", "build"])
 
         _server = Server()
+        _server.watch("data/**/*.yaml", _byg)
         _server.watch("data/*.yaml", _byg)
-        _server.watch("out/*.html")
+        _server.watch("out/**/*.html")
         _server.serve(root="out/", port=args.port, open_url_delay=1)
         sys.exit(0)
 
