@@ -3214,6 +3214,341 @@ def ny_plante():
     print("  Kør 'have' for at opdatere sitet, eller 'have check' for at validere.")
 
 
+def ret_i_plante_yaml():
+    """Interaktiv wizard til at redigere en eksisterende plante i planter.yaml."""
+    import io as _io
+    import re as _re
+    import questionary
+    from ruamel.yaml import YAML as RuamelYAML
+
+    ry = RuamelYAML()
+    ry.preserve_quotes = True
+    ry.default_flow_style = False
+    ry.width = 120
+
+    # ── 1. Søg og vælg plante ─────────────────────────────────────────────────
+    db = byg_plante_db(PLANTER_FIL)
+    if not db:
+        print(f"❌ Ingen planter fundet i {PLANTER_FIL}")
+        sys.exit(1)
+
+    valgt_plante = None
+    while valgt_plante is None:
+        søg = questionary.text("Søg efter plante (navn, sort eller id):").ask()
+        if søg is None:
+            sys.exit(0)
+        hits = _søg_planter(søg, db)
+        if not hits:
+            print(f"  Ingen planter matcher '{søg}'. Prøv igen.")
+            continue
+        if len(hits) == 1:
+            valgt_plante = hits[0]
+        else:
+            valgt = questionary.select(
+                "Vælg plante:",
+                choices=[questionary.Choice(title=_plante_label(p), value=p) for p in hits],
+            ).ask()
+            if valgt is None:
+                sys.exit(0)
+            valgt_plante = valgt
+
+    pid = valgt_plante["id"]
+    print(f"\n  Redigerer: {_plante_label(valgt_plante)}\n")
+
+    # ── 2. Vælg felter der skal rettes ────────────────────────────────────────
+    ALLE_FELTER = [
+        ("navn",         "Navn"),
+        ("sort",         "Sort/Kultivar"),
+        ("latin",        "Latinsk navn"),
+        ("familie",      "Familie"),
+        ("farve",        "Farve"),
+        ("placering",    "Placering"),
+        ("afstand",      "Planteafstand"),
+        ("rækkeafstand", "Rækkeafstand"),
+        ("sådybde",      "Sådybde"),
+        ("indendørs",    "Forspiring indendørs"),
+        ("udplantning",  "Udplantning"),
+        ("direkte",      "Direkte såning"),
+        ("høst_fra",     "Høst fra"),
+        ("høst_til",     "Høst til"),
+        ("noter",        "Noter"),
+        ("foto",         "Foto"),
+    ]
+
+    def _felt_label(felt, label):
+        v = valgt_plante.get(felt)
+        if felt == "foto" and isinstance(v, dict):
+            return f"{label}  [{v.get('fil', '?')}]"
+        if v is not None:
+            return f"{label}  [{v}]"
+        return f"{label}  (ikke sat)"
+
+    valgte_felter = questionary.checkbox(
+        "Hvilke felter vil du rette? (mellemrum = vælg, Enter = bekræft):",
+        choices=[
+            questionary.Choice(title=_felt_label(felt, label), value=felt)
+            for felt, label in ALLE_FELTER
+        ],
+    ).ask()
+
+    if not valgte_felter:
+        print("Ingen felter valgt — afbrudt.")
+        sys.exit(0)
+
+    print()
+
+    # ── 3. Rediger hvert felt ─────────────────────────────────────────────────
+    ændringer: dict = {}
+
+    def _valider_måned_opt(v):
+        v = v.strip()
+        if not v:
+            return True
+        try:
+            m = int(v)
+            if 1 <= m <= 12:
+                return True
+            return "skal være 1–12"
+        except ValueError:
+            return f"ugyldigt heltal: {v!r}"
+
+    def _valider_afstand(v):
+        v = v.strip()
+        if not v:
+            return True
+        if _re.match(r"^\d+(-\d+)?$", v):
+            return True
+        return f"ugyldigt format: {v!r}"
+
+    for felt in valgte_felter:
+        nuværende = valgt_plante.get(felt)
+
+        if felt == "navn":
+            ny_val = (questionary.text(
+                "Navn:",
+                default=str(nuværende or ""),
+                validate=lambda v: bool(v.strip()) or "navn er påkrævet",
+            ).ask() or "").strip()
+            if ny_val:
+                ændringer["navn"] = ny_val
+
+        elif felt == "sort":
+            ny_val = (questionary.text(
+                "Sort/Kultivar (Enter = fjern):",
+                default=str(nuværende or ""),
+            ).ask() or "").strip()
+            ændringer["sort"] = ny_val or None
+
+        elif felt == "latin":
+            def _valider_latin_ret(v):
+                v = v.strip()
+                if not v or " " in v:
+                    return True
+                return "latinsk navn skal indeholde mindst ét mellemrum"
+
+            ny_val = (questionary.text(
+                "Latin (Enter = fjern):",
+                default=str(nuværende or ""),
+                validate=_valider_latin_ret,
+            ).ask() or "").strip()
+            ændringer["latin"] = ny_val or None
+
+        elif felt == "familie":
+            ny_val = (questionary.text(
+                "Familie (Enter = fjern):",
+                default=str(nuværende or ""),
+            ).ask() or "").strip()
+            ændringer["familie"] = ny_val or None
+
+        elif felt == "farve":
+            _FARVEFORSLAG = [
+                ("#2d5a27", "Mørkegrøn     — kål, spinat, persille"),
+                ("#4a7c59", "Grøn          — salat, ærter, bønner"),
+                ("#8bc34a", "Lysegrøn      — agurk, courgette"),
+                ("#374720", "Olivengrøn    — rosmarin, timian"),
+                ("#ff6f00", "Orange        — gulerod, græskar"),
+                ("#e53935", "Rød           — tomat, jordbær, rød peber"),
+                ("#c2185b", "Mørkerød      — rødbede, rødkål"),
+                ("#f9a825", "Gul           — gul peber, majskolbe"),
+                ("#6d4c41", "Brun          — kartoffel, jordskokke"),
+                ("#7b1fa2", "Lilla         — aubergine, lilla basilikum"),
+                ("#ffffff", "Hvid          — blomkål, fennikel, hvidløg"),
+            ]
+            kendte_hex = {h for h, _ in _FARVEFORSLAG}
+            farve_valg = questionary.select(
+                "Farve:",
+                choices=[
+                    questionary.Choice(
+                        title=[("bg:" + h, "   "), ("", f"  {h}  {label}")],
+                        value=h,
+                    )
+                    for h, label in _FARVEFORSLAG
+                ] + [questionary.Choice(title="Indtast selv …", value="__manuel__")],
+                default=nuværende if nuværende in kendte_hex else None,
+            ).ask()
+            if farve_valg == "__manuel__":
+                farve = (questionary.text(
+                    "Farve hex (fx '#374720'):",
+                    default=str(nuværende or ""),
+                    validate=lambda v: bool(_re.match(r"^#[0-9a-fA-F]{6}$", v)) or f"ugyldig hex-farve: {v!r}",
+                ).ask() or "").strip()
+            else:
+                farve = farve_valg
+            if farve:
+                ændringer["farve"] = farve
+
+        elif felt == "placering":
+            ny_val = (questionary.text(
+                "Placering:",
+                default=str(nuværende or ""),
+                validate=lambda v: bool(v.strip()) or "placering er påkrævet",
+            ).ask() or "").strip()
+            if ny_val:
+                ændringer["placering"] = ny_val
+
+        elif felt == "afstand":
+            ny_val = (questionary.text(
+                "Planteafstand cm (fx '30' eller '12-15', Enter = fjern):",
+                default=str(nuværende or ""),
+                validate=_valider_afstand,
+            ).ask() or "").strip()
+            ændringer["afstand"] = (int(ny_val) if ny_val.isdigit() else ny_val) if ny_val else None
+
+        elif felt == "rækkeafstand":
+            ny_val = (questionary.text(
+                "Rækkeafstand cm (fx '25-30', Enter = fjern):",
+                default=str(nuværende or ""),
+                validate=_valider_afstand,
+            ).ask() or "").strip()
+            ændringer["rækkeafstand"] = (int(ny_val) if ny_val.isdigit() else ny_val) if ny_val else None
+
+        elif felt == "sådybde":
+            def _valider_sådybde_ret(v):
+                v = v.strip()
+                if not v:
+                    return True
+                try:
+                    n = int(v)
+                    return True if n > 0 else "sådybde skal være et positivt heltal"
+                except ValueError:
+                    return f"ugyldigt heltal: {v!r}"
+
+            ny_val = (questionary.text(
+                "Sådybde cm (fx '1', Enter = fjern):",
+                default=str(nuværende or ""),
+                validate=_valider_sådybde_ret,
+            ).ask() or "").strip()
+            ændringer["sådybde"] = int(ny_val) if ny_val else None
+
+        elif felt == "indendørs":
+            ny_val = (questionary.text(
+                "Forspiring indendørs måned (1-12, Enter = fjern):",
+                default=str(nuværende or ""),
+                validate=_valider_måned_opt,
+            ).ask() or "").strip()
+            ændringer["indendørs"] = int(ny_val) if ny_val else None
+
+        elif felt == "udplantning":
+            ny_val = (questionary.text(
+                "Udplantning måned (1-12, Enter = fjern):",
+                default=str(nuværende or ""),
+                validate=_valider_måned_opt,
+            ).ask() or "").strip()
+            ændringer["udplantning"] = int(ny_val) if ny_val else None
+
+        elif felt == "direkte":
+            ny_val = (questionary.text(
+                "Direkte såning måned (1-12, Enter = fjern):",
+                default=str(nuværende or ""),
+                validate=_valider_måned_opt,
+            ).ask() or "").strip()
+            ændringer["direkte"] = int(ny_val) if ny_val else None
+
+        elif felt == "høst_fra":
+            ny_val = (questionary.text(
+                "Høst fra måned (1-12, Enter = fjern):",
+                default=str(nuværende or ""),
+                validate=_valider_måned_opt,
+            ).ask() or "").strip()
+            ændringer["høst_fra"] = int(ny_val) if ny_val else None
+
+        elif felt == "høst_til":
+            ny_val = (questionary.text(
+                "Høst til måned (1-12, Enter = fjern):",
+                default=str(nuværende or ""),
+                validate=_valider_måned_opt,
+            ).ask() or "").strip()
+            ændringer["høst_til"] = int(ny_val) if ny_val else None
+
+        elif felt == "noter":
+            ny_val = (questionary.text(
+                "Noter (Enter = fjern):",
+                default=str(nuværende or ""),
+            ).ask() or "").strip()
+            ændringer["noter"] = ny_val or None
+
+        elif felt == "foto":
+            nuværende_foto = nuværende if isinstance(nuværende, dict) else {}
+            print("  Redigerer foto-felter:")
+            foto_fil = (questionary.text(
+                "  Filnavn:",
+                default=nuværende_foto.get("fil", ""),
+            ).ask() or "").strip()
+            foto_kilde = (questionary.text(
+                "  Kilde-URL (Enter = fjern):",
+                default=nuværende_foto.get("kilde", ""),
+            ).ask() or "").strip()
+            foto_licens = (questionary.text(
+                "  Licens:",
+                default=nuværende_foto.get("licens", ""),
+            ).ask() or "").strip()
+            foto_forfatter = (questionary.text(
+                "  Forfatter:",
+                default=nuværende_foto.get("forfatter", ""),
+            ).ask() or "").strip()
+            nyt_foto: dict = {}
+            if foto_fil:
+                nyt_foto["fil"] = foto_fil
+            if foto_kilde:
+                nyt_foto["kilde"] = foto_kilde
+            if foto_licens:
+                nyt_foto["licens"] = foto_licens
+            if foto_forfatter:
+                nyt_foto["forfatter"] = foto_forfatter
+            if nyt_foto:
+                ændringer["foto"] = nyt_foto
+
+    if not ændringer:
+        print("Ingen ændringer — afbrudt.")
+        sys.exit(0)
+
+    # ── 4. Skriv tilbage med ruamel.yaml (bevarer struktur) ───────────────────
+    with open(PLANTER_FIL, encoding="utf-8") as fh:
+        rå_data = ry.load(fh)
+
+    planter = rå_data if isinstance(rå_data, list) else rå_data.get("planter", [])
+    plante_post = next((p for p in planter if p.get("id") == pid), None)
+    if plante_post is None:
+        print(f"❌ Kunne ikke finde plante {pid!r} i {PLANTER_FIL.name} — afbrudt.")
+        sys.exit(1)
+
+    for felt, ny_val in ændringer.items():
+        if ny_val is None:
+            plante_post.pop(felt, None)
+        else:
+            plante_post[felt] = ny_val
+
+    buf = _io.StringIO()
+    ry.dump(rå_data, buf)
+    PLANTER_FIL.write_text(buf.getvalue(), encoding="utf-8")
+
+    opdateret_navn = ændringer.get("navn") or valgt_plante.get("navn", pid)
+    opdateret_sort = ændringer.get("sort") or valgt_plante.get("sort")
+    label = f"{opdateret_navn} – {opdateret_sort} [{pid}]" if opdateret_sort else f"{opdateret_navn} [{pid}]"
+    print(f"\n✓ {label} opdateret i {PLANTER_FIL.name}")
+    print("  Kør 'have' for at opdatere sitet, eller 'have check' for at validere.")
+
+
 def generer_søg_json(out_rod: Path, data_rod: Path, plante_db: dict) -> Path:
     """Generer søg.json med alle entries på tværs af år. Returnerer stien til filen."""
     import json
@@ -4840,6 +5175,8 @@ def main():
     # Subkommando: ny-plante
     subparsers.add_parser("ny-plante", help="Opret ny plante i planter.yaml (interaktiv wizard)")
 
+    subparsers.add_parser("ret-i-plante-yaml", help="Ret en eksisterende plante i planter.yaml (interaktiv wizard)")
+
     # Subkommando: hent-fotos
     subparsers.add_parser("hent-fotos", help="Hent plantefotos fra Wikimedia")
 
@@ -4904,6 +5241,10 @@ def main():
 
     if args.kommando == "ny-plante":
         ny_plante()
+        sys.exit(0)
+
+    if args.kommando == "ret-i-plante-yaml":
+        ret_i_plante_yaml()
         sys.exit(0)
 
     if args.kommando == "nyt-bed":

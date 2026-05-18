@@ -28,15 +28,20 @@ Sitet ligger i `out/`. Åbn `out/index.html` i en browser.
 ## Daglig brug
 
 ```bash
-have build           # byg sitet
-have watch           # byg automatisk ved ændringer
-have check           # validér YAML og krydsreferencér planter mod bede
-have nyt-år 2027     # opret ny sæson
-have ny-plante       # tilføj plante til planter.yaml (interaktiv wizard)
-have ny-entry        # opret dagbogspost (interaktiv wizard)
-have nyt-bed         # opret nyt bed i en havezone, fx. et nyt bed i et højbed
-have hent-fotos      # hent plantefotos fra Wikimedia Commons
-have deploy          # byg + upload til server
+have build              # byg sitet
+have watch              # byg automatisk ved ændringer
+have check              # validér YAML og krydsreferencér planter mod bede
+have nyt-år 2027        # opret ny sæson
+have ny-plante          # tilføj plante til planter.yaml (interaktiv wizard)
+have ret-i-plante-yaml  # ret en eksisterende plante i planter.yaml (interaktiv wizard)
+have ny-entry           # opret dagbogspost (interaktiv wizard)
+have nyt-bed            # opret nyt bed i en havezone, fx. et nyt bed i et højbed
+have plant-en-plante    # plant en plante i et eksisterende bed (interaktiv wizard)
+have riv-en-plante-op   # fjern en zone fra et bed (interaktiv wizard)
+have ret-en-plante      # ret en zone i et bed (interaktiv wizard)
+have ret-bed            # omfordel zone-bredder i et bed (interaktiv wizard)
+have hent-fotos         # hent plantefotos fra Wikimedia Commons
+have deploy             # byg + upload til server
 ```
 
 ## YAML-filer
