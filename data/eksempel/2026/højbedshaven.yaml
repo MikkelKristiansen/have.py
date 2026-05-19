@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../../schema/bed.schema.json
 meta:
   år: 2026
   titel: Højbedshaven

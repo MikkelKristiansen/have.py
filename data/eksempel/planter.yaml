@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../schema/planter.schema.json
 meta:
   titel: Planteregister
   html_navn: planter
