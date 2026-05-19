@@ -3,7 +3,9 @@
   "title": "bed.yaml",
   "description": "Have.py bedeplan — ét område med bede, zoner og afgrøder for et givent år",
   "type": "object",
-  "required": ["bede"],
+  "required": [
+    "bede"
+  ],
   "additionalProperties": false,
   "properties": {
     "meta": {
@@ -11,31 +13,64 @@
       "description": "Metadata om området",
       "additionalProperties": false,
       "properties": {
-        "år":          { "type": "integer", "description": "Havesæsonens år, fx 2026" },
-        "titel":       { "type": "string",  "description": "Sidetitel, fx 'Drivhuset'" },
-        "html_navn":   { "type": "string",  "description": "URL-slug og filnavn uden .html, fx 'drivhus'" },
-        "ikon":        { "type": "string",  "description": "Emoji-ikon til navigation" },
-        "ikon_billede":{ "type": "string",  "description": "Sti til headerbillede, fx 'fotos/drivhus.jpg'" },
-        "undertitel":  { "type": "string" },
-        "beskrivelse": { "type": "string" },
-        "tags":        { "type": "array", "items": { "type": "string" } }
+        "år": {
+          "type": "integer",
+          "description": "Havesæsonens år, fx 2026"
+        },
+        "titel": {
+          "type": "string",
+          "description": "Sidetitel, fx 'Drivhuset'"
+        },
+        "html_navn": {
+          "type": "string",
+          "description": "URL-slug og filnavn uden .html, fx 'drivhus'"
+        },
+        "ikon": {
+          "type": "string",
+          "description": "Emoji-ikon til navigation"
+        },
+        "ikon_billede": {
+          "type": "string",
+          "description": "Sti til headerbillede, fx 'fotos/drivhus.jpg'"
+        },
+        "undertitel": {
+          "type": "string"
+        },
+        "beskrivelse": {
+          "type": "string"
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
       }
     },
     "bede": {
       "type": "array",
       "description": "Liste af bede i dette område",
-      "items": { "$ref": "#/$defs/Bed" }
+      "items": {
+        "$ref": "#/$defs/Bed"
+      }
     },
     "kalender_planter": {
       "type": "array",
       "description": "Plante-ID'er der vises i almanakkens kalender for dette område",
-      "items": { "type": "string" }
+      "items": {
+        "type": "string"
+      }
     }
   },
   "$defs": {
     "Bed": {
       "type": "object",
-      "required": ["id", "navn", "bredde_cm", "dybde_cm"],
+      "required": [
+        "id",
+        "navn",
+        "bredde_cm",
+        "dybde_cm"
+      ],
       "additionalProperties": false,
       "properties": {
         "id": {
@@ -58,24 +93,35 @@
           "description": "Bedets dybde (længde) i cm"
         },
         "farve": {
-          "type": ["string", "null"],
+          "type": [
+            "string",
+            "null"
+          ],
           "description": "Baggrundsfarve i beddiagrammet, hex-kode fx '#d4edda'",
           "pattern": "^#[0-9a-fA-F]{6}$"
         },
         "noter": {
-          "type": ["string", "null"],
+          "type": [
+            "string",
+            "null"
+          ],
           "description": "Fri tekst om bedet — vises under beddiagrammet"
         },
         "zoner": {
           "type": "array",
           "description": "Zoner/kolonner i bedet — bredder skal summere til ≤ 1.0",
-          "items": { "$ref": "#/$defs/Zone" }
+          "items": {
+            "$ref": "#/$defs/Zone"
+          }
         }
       }
     },
     "Zone": {
       "type": "object",
-      "required": ["navn", "bredde"],
+      "required": [
+        "navn",
+        "bredde"
+      ],
       "additionalProperties": false,
       "properties": {
         "navn": {
@@ -90,28 +136,157 @@
         },
         "plante_id": {
           "type": "string",
-          "description": "Direkte reference til en plante i planter.yaml — brug dette eller afgrøder[], ikke begge"
+          "description": "Direkte reference til en plante i planter.yaml — brug dette eller afgrøder[], ikke begge",
+          "enum": [
+            "allium-sativum",
+            "brombaer",
+            "busktomat",
+            "california-wonder",
+            "cayenne",
+            "citronmelisse",
+            "diamant",
+            "dild",
+            "estragon",
+            "filippa",
+            "genovese",
+            "goldball",
+            "groen-tapas",
+            "groene-aerter",
+            "gulloeg",
+            "habenero",
+            "half-tall",
+            "hindbaer",
+            "ingrid-marie",
+            "jordbaer",
+            "koervel",
+            "koriander",
+            "marketmore",
+            "matador",
+            "maxi",
+            "money-maker",
+            "mynte",
+            "nantes",
+            "nero-di-toscana",
+            "ola-escalladora",
+            "oregano",
+            "paere",
+            "pak-choi",
+            "persille",
+            "pluksalat",
+            "purloeg",
+            "quadro",
+            "rabarber",
+            "radise",
+            "ribs",
+            "roedloeg",
+            "rosmarin",
+            "rucola",
+            "salat",
+            "salvie",
+            "sava",
+            "scarlet",
+            "snitloeg",
+            "solbaer",
+            "solist",
+            "solstik",
+            "sommersar",
+            "spinat",
+            "stikkelsbaer",
+            "timian",
+            "tinca",
+            "ungarsk-lang",
+            null
+          ]
         },
         "antal": {
-          "type": ["integer", "null"],
+          "type": [
+            "integer",
+            "null"
+          ],
           "minimum": 1,
           "description": "Antal planter i zonen (valgfrit)"
         },
         "afgrøder": {
           "type": "array",
           "description": "Sædskifte: to eller flere afgrøder med perioder (fra/til måneder)",
-          "items": { "$ref": "#/$defs/Afgrøde" }
+          "items": {
+            "$ref": "#/$defs/Afgrøde"
+          }
         }
       }
     },
     "Afgrøde": {
       "type": "object",
-      "required": ["plante_id", "fra", "til"],
+      "required": [
+        "plante_id",
+        "fra",
+        "til"
+      ],
       "additionalProperties": false,
       "properties": {
         "plante_id": {
           "type": "string",
-          "description": "Reference til plante i planter.yaml"
+          "description": "Reference til plante i planter.yaml",
+          "enum": [
+            "allium-sativum",
+            "brombaer",
+            "busktomat",
+            "california-wonder",
+            "cayenne",
+            "citronmelisse",
+            "diamant",
+            "dild",
+            "estragon",
+            "filippa",
+            "genovese",
+            "goldball",
+            "groen-tapas",
+            "groene-aerter",
+            "gulloeg",
+            "habenero",
+            "half-tall",
+            "hindbaer",
+            "ingrid-marie",
+            "jordbaer",
+            "koervel",
+            "koriander",
+            "marketmore",
+            "matador",
+            "maxi",
+            "money-maker",
+            "mynte",
+            "nantes",
+            "nero-di-toscana",
+            "ola-escalladora",
+            "oregano",
+            "paere",
+            "pak-choi",
+            "persille",
+            "pluksalat",
+            "purloeg",
+            "quadro",
+            "rabarber",
+            "radise",
+            "ribs",
+            "roedloeg",
+            "rosmarin",
+            "rucola",
+            "salat",
+            "salvie",
+            "sava",
+            "scarlet",
+            "snitloeg",
+            "solbaer",
+            "solist",
+            "solstik",
+            "sommersar",
+            "spinat",
+            "stikkelsbaer",
+            "timian",
+            "tinca",
+            "ungarsk-lang",
+            null
+          ]
         },
         "fra": {
           "type": "integer",
@@ -126,7 +301,10 @@
           "description": "Sidste måned i jorden (1=jan … 12=dec)"
         },
         "antal": {
-          "type": ["integer", "null"],
+          "type": [
+            "integer",
+            "null"
+          ],
           "minimum": 1,
           "description": "Antal planter (valgfrit)"
         }

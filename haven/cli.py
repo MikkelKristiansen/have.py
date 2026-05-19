@@ -2611,6 +2611,7 @@ def generer_alle(yaml_filer=None) -> list:
 
     søg_json_sti, søg_data = generer_søg_json(OUT_MAPPE.parent, PROJECT_ROOT / "data", PLANTE_DB)
     upload_filer.append((str(søg_json_sti), "søg.json"))
+    opdater_schema_plante_ids(PLANTE_DB)
 
     import json as _json
     søg_html_sti = OUT_MAPPE.parent / "søg.html"
@@ -3559,6 +3560,26 @@ def ret_i_plante_yaml():
     label = f"{opdateret_navn} – {opdateret_sort} [{pid}]" if opdateret_sort else f"{opdateret_navn} [{pid}]"
     print(f"\n✓ {label} opdateret i {PLANTER_FIL.name}")
     print("  Kør 'have' for at opdatere sitet, eller 'have check' for at validere.")
+
+
+def opdater_schema_plante_ids(plante_db: dict) -> None:
+    """Skriv alle kendte plante_id'er som enum ind i bed.schema.json."""
+    import json
+    schema_sti = PROJECT_ROOT / "schema" / "bed.schema.json"
+    if not schema_sti.exists():
+        return
+    schema = json.loads(schema_sti.read_text(encoding="utf-8"))
+    ids = sorted(plante_db.keys())
+    enum_felt = ids + [None]
+    for def_navn in ("Zone", "Afgrøde"):
+        felt = schema.get("$defs", {}).get(def_navn, {}).get("properties", {}).get("plante_id")
+        if felt is not None:
+            felt["enum"] = enum_felt
+    ny = json.dumps(schema, ensure_ascii=False, indent=2) + "\n"
+    if skriv_hvis_ændret(schema_sti, ny):
+        print(f"✅ Schema opdateret med {len(ids)} plante-ID'er: {schema_sti.name}")
+    else:
+        print(f"ℹ️  Schema uændret: {schema_sti.name}")
 
 
 def generer_søg_json(out_rod: Path, data_rod: Path, plante_db: dict) -> Path:
@@ -5208,6 +5229,7 @@ def main():
     subparsers.add_parser("område", help="Opret nyt havområde i aktuelle projekt")
 
     # Subkommando: check
+    subparsers.add_parser("opdater-schema", help="Opdater plante_id-enum i bed.schema.json fra planter.yaml")
     check_parser = subparsers.add_parser("check", help="Validér planter.yaml og krydsreferencér mod bede")
     check_parser.add_argument("--strict", action="store_true",
                               help="Behandl advarsler som fejl (nyttigt inden upload)")
@@ -5274,6 +5296,11 @@ def main():
 
     if args.kommando == "område":
         nyt_område()
+        sys.exit(0)
+
+    if args.kommando == "opdater-schema":
+        PLANTE_DB.update(byg_plante_db(PLANTER_FIL))
+        opdater_schema_plante_ids(PLANTE_DB)
         sys.exit(0)
 
     if args.kommando == "check":
