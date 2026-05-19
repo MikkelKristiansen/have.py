@@ -95,7 +95,9 @@ mark { background: #d4edda; padding: 0 .15em; border-radius: 2px; }
     keys: [
       { name: 'tekst',     weight: 3 },
       { name: 'navn',      weight: 2 },
+      { name: 'latin',     weight: 2 },
       { name: 'bed_titel', weight: 1 },
+      { name: 'familie',   weight: 1 },
     ],
     threshold: 0.35,
     includeScore: true,
@@ -111,20 +113,25 @@ mark { background: #d4edda; padding: 0 .15em; border-radius: 2px; }
       ? res.length + ' resultat' + (res.length !== 1 ? 'er' : '') + ' for «' + q + '»'
       : 'Ingen resultater for «' + q + '»';
     liste.innerHTML = res.map(({ item }) => {
+      const erBedeplan = item.type === 'bedeplan';
+      const erPlante   = item.type === 'plante';
       const navn  = item.navn      ? highlight(item.navn, q)      : '';
-      const bed   = item.bed_titel ? highlight(item.bed_titel, q) : item.bed;
+      const bed   = item.bed_titel ? highlight(item.bed_titel, q) : (item.bed || '');
       const tekst = item.tekst     ? highlight(item.tekst.slice(0, 220), q) : '';
       const overskrift = navn || bed;
-      const erBedeplan = item.type === 'bedeplan';
-      const badge = erBedeplan ? '<span class="søg-badge">bedeplan</span>' : '';
-      const meta = erBedeplan
-        ? item.år + ' · ' + bed
-        : item.år + ' · ' + bed + ' · ' + datoLabel(item.dato);
+      const badge = erBedeplan ? '<span class="søg-badge">bedeplan</span>'
+                  : erPlante   ? '<span class="søg-badge" style="background:#e3f2fd;color:#1565c0">plante</span>'
+                  : '';
+      const meta = erPlante
+        ? [item.latin ? '<em>' + highlight(item.latin, q) + '</em>' : '', item.familie ? highlight(item.familie, q) : ''].filter(Boolean).join(' · ')
+        : erBedeplan
+          ? item.år + ' · ' + bed
+          : item.år + ' · ' + bed + ' · ' + datoLabel(item.dato);
       return '<div class="søg-resultat">'
         + '<a href="' + item.link + '">'
         + '<div class="søg-navn">' + overskrift + badge + '</div>'
-        + '<div class="søg-meta">' + meta + '</div>'
-        + (tekst ? '<div class="søg-tekst">' + (erBedeplan ? '📍 ' : '"') + tekst + (erBedeplan ? '' : '"') + '</div>' : '')
+        + (meta ? '<div class="søg-meta">' + meta + '</div>' : '')
+        + (tekst && !erPlante ? '<div class="søg-tekst">' + (erBedeplan ? '📍 ' : '"') + tekst + (erBedeplan ? '' : '"') + '</div>' : '')
         + '</a></div>';
     }).join('');
   }

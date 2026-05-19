@@ -3700,11 +3700,33 @@ def generer_søg_json(out_rod: Path, data_rod: Path, plante_db: dict) -> Path:
                 "link":      f"{år}/{html_navn}.html#bedoversigt",
             })
 
+    # ── Planter fra planter.yaml ─────────────────────────────────────────────
+    planter_del = []
+    for pid, p in sorted(plante_db.items()):
+        navn = p.get("navn", pid)
+        sort = p.get("sort", "")
+        if sort:
+            navn = f"{navn} – {sort}"
+        dele = [navn]
+        if p.get("latin"):
+            dele.append(p["latin"])
+        if p.get("familie"):
+            dele.append(p["familie"])
+        planter_del.append({
+            "type":   "plante",
+            "navn":   navn,
+            "latin":  p.get("latin") or "",
+            "familie": p.get("familie") or "",
+            "tekst":  " · ".join(filter(None, [p.get("latin"), p.get("familie")])),
+            "link":   f"planter.html#plante-{pid}",
+        })
+    planter_del.sort(key=lambda e: e["navn"].lower())
+
     entries_del  = [e for e in søg_data if e["type"] == "entry"]
     bedeplaner_del = [e for e in søg_data if e["type"] == "bedeplan"]
     entries_del.sort(key=lambda e: e["dato"], reverse=True)
     bedeplaner_del.sort(key=lambda e: (-e["år"], e["bed"], e.get("navn", "")))
-    søg_data = entries_del + bedeplaner_del
+    søg_data = entries_del + bedeplaner_del + planter_del
     ud_sti = out_rod / "søg.json"
     ny = json.dumps(søg_data, ensure_ascii=False, separators=(",", ":"))
     if skriv_hvis_ændret(ud_sti, ny):
@@ -4078,6 +4100,10 @@ def plant_en_plante():
         return True
 
     # ── 4. Efterafgrøde? ──────────────────────────────────────────────────────
+    # Udled forslag til fra/til fra planter.yaml-kalenderdata
+    _fra_forslag = valgt_plante.get("udplantning") or valgt_plante.get("direkte") or valgt_plante.get("indendørs")
+    _til_forslag = valgt_plante.get("høst_til") or valgt_plante.get("høst_fra")
+
     er_efterafgrøde = questionary.confirm(
         "Er dette en efterafgrøde med en bestemt periode (fra/til måneder)?",
         default=False,
@@ -4091,17 +4117,21 @@ def plant_en_plante():
     eksisterende_zoner = valgt_bed.get("zoner", []) or []
 
     if er_efterafgrøde:
+        fra_kwargs = {"default": str(_fra_forslag)} if _fra_forslag else {}
         fra_str = questionary.text(
             f"Fra hvilken måned plantes {zone_navn}? (1–12):",
             validate=_valider_måned,
+            **fra_kwargs,
         ).ask()
         if fra_str is None:
             sys.exit(0)
         fra_måned = int(fra_str)
 
+        til_kwargs = {"default": str(_til_forslag)} if _til_forslag else {}
         til_str = questionary.text(
             f"Til hvilken måned er {zone_navn} i jorden? (1–12):",
             validate=_valider_måned,
+            **til_kwargs,
         ).ask()
         if til_str is None:
             sys.exit(0)
@@ -4183,16 +4213,20 @@ def plant_en_plante():
             eks_p     = plante_db.get(eks_pid, {})
             eks_navn  = eks_p.get("sort") or eks_p.get("navn", eks_pid)
 
+            _eks_fra_forslag = eks_p.get("udplantning") or eks_p.get("direkte") or eks_p.get("indendørs")
+            _eks_til_forslag = eks_p.get("høst_til") or eks_p.get("høst_fra")
             print(f"\nFor at konvertere til sædskifte skal vi vide perioden for '{eks_navn}'.")
             eks_fra_str = questionary.text(
                 f"Fra hvilken måned er '{eks_navn}' i jorden? (1–12):",
                 validate=_valider_måned,
+                **( {"default": str(_eks_fra_forslag)} if _eks_fra_forslag else {} ),
             ).ask()
             if eks_fra_str is None:
                 sys.exit(0)
             eks_til_str = questionary.text(
                 f"Til hvilken måned er '{eks_navn}' i jorden? (1–12):",
                 validate=_valider_måned,
+                **( {"default": str(_eks_til_forslag)} if _eks_til_forslag else {} ),
             ).ask()
             if eks_til_str is None:
                 sys.exit(0)
