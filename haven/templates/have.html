@@ -145,7 +145,7 @@
 
     {% if mån.entries %}
     <div class="alm-entries">
-      {% for entry in mån.entries | sort(attribute='dato', reverse=True) %}
+      {% for entry in mån.entries %}
       <article class="alm-entry">
         <div class="alm-header">
           <span class="alm-dato">{{ entry.dato | dato_fmt }}</span>

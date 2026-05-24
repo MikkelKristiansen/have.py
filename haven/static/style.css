@@ -1014,3 +1014,38 @@ td { border: 1px solid #e0e0e0; padding: 6px 5px; text-align: center; }
   height: auto;
   display: block;
 }
+
+/* ── Almanak plantefiltrering ── */
+.alm-entry.filtreret-væk {
+  opacity: 0.18;
+  pointer-events: none;
+  transition: opacity .2s;
+}
+.alm-tag-plante.aktiv-filter {
+  background: #2e7d32;
+  color: #fff;
+  border-color: #1b5e20;
+}
+#alm-filter-status {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  padding: .5rem 1rem;
+  background: #f1f8e9;
+  border: 1px solid #c5e1a5;
+  border-radius: 8px;
+  margin-bottom: 1.25rem;
+  font-size: .85rem;
+}
+#alm-filter-nulstil {
+  background: none;
+  border: 1px solid #81c784;
+  border-radius: 999px;
+  padding: .15rem .6rem;
+  cursor: pointer;
+  color: #2e7d32;
+  font-size: .8rem;
+}
+#alm-filter-nulstil:hover {
+  background: #c5e1a5;
+}

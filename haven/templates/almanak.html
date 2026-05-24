@@ -14,6 +14,11 @@
   {% endfor %}
 </nav>
 
+<div id="alm-filter-status" hidden>
+  <span id="alm-filter-pill"></span>
+  <button id="alm-filter-nulstil">Vis alle</button>
+</div>
+
 
 <!-- <h2 id="almanak" class="side-skift">📖 Månedsoversigt</h2> -->
 {# ── Samlet sådatokalender ── #}
@@ -104,7 +109,8 @@
     {% if mån.entries %}
     <div class="alm-entries">
       {% for entry in mån.entries %}
-      <article class="alm-entry" id="{{ entry._fil | default(entry.dato) }}">
+      <article class="alm-entry" id="{{ entry._fil | default(entry.dato) }}"
+               data-planter='{{ entry.plante_navne | default([]) | tojson }}'>
         <div class="alm-header">
           <span class="alm-dato">{{ entry.dato | dato_fmt }}</span>
           <h4 class="alm-titel">{{ entry.titel }}</h4>
@@ -146,4 +152,8 @@
 {% endfor %}
 </div>
 
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{{ rod_sti | default('') }}almanak-filter.js"></script>
 {% endblock %}

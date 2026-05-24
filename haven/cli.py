@@ -405,6 +405,16 @@ def generer_html(yaml_sti, html_sti, env, alle_planter, nav_context=None,
                 e_kopi = dict(e)
                 if hasattr(e_kopi.get("dato"), "isoformat"):
                     e_kopi["dato"] = e_kopi["dato"].isoformat()
+                # Normaliser plante_id og berig med plantenavne
+                pid = e_kopi.get("plante_id")
+                if pid is None:
+                    e_kopi["plante_id"] = []
+                elif isinstance(pid, str):
+                    e_kopi["plante_id"] = [pid] if pid else []
+                elif not isinstance(pid, list):
+                    e_kopi["plante_id"] = list(pid)
+                e_kopi["plante_navne"] = [PLANTE_DB.get(p, {}).get("navn", p)
+                                          for p in e_kopi["plante_id"] if p]
                 try:
                     måned_nr = int(str(e_kopi["dato"]).split("-")[1])
                     almanak_måneder[måned_nr - 1]["entries"].append(e_kopi)
@@ -418,14 +428,17 @@ def generer_html(yaml_sti, html_sti, env, alle_planter, nav_context=None,
             e_kopi = dict(e)
             if hasattr(e_kopi.get("dato"), "isoformat"):
                 e_kopi["dato"] = e_kopi["dato"].isoformat()
+            # Berig med plantenavne (plante_id er allerede normaliseret til liste af _les_entries_mappe)
+            e_kopi["plante_navne"] = [PLANTE_DB.get(p, {}).get("navn", p)
+                                      for p in e_kopi.get("plante_id", []) if p]
             try:
                 måned_nr = int(str(e_kopi["dato"]).split("-")[1])
                 almanak_måneder[måned_nr - 1]["entries"].append(e_kopi)
             except (KeyError, IndexError, ValueError):
                 pass
-        # Sortér entries nyeste først
+        # Sortér entries ældste først (stigende dato)
         for mån in almanak_måneder:
-            mån["entries"].sort(key=lambda e: str(e["dato"]), reverse=True)
+            mån["entries"].sort(key=lambda e: str(e["dato"]))
     har_almanak = bool(almanak_måneder)
 
     skabelon = env.get_template("have.html")
@@ -492,12 +505,15 @@ def flet_almanakker(projekter_data, entries_fil=None):
             # Entries hentes fra entries.yaml
 
     # Byg opslagsdict: html_navn -> titel
+    # Indlæs fra meta.html_navn i bed-YAML'erne — filnavnet matcher ikke nødvendigvis html_navn
+    # (fx har højbedshaven.yaml html_navn="hoejbede")
     område_titler: dict[str, str] = {}
-    for oid, alm in projekter_data:
-        yaml_sti_søg = next((y for y in YAML_FILER_DEFAULT if oid in str(y)), None)
-        if yaml_sti_søg and os.path.exists(yaml_sti_søg):
-            meta = load_yaml(yaml_sti_søg).get("meta", {})
-            område_titler[oid] = meta.get("titel", oid)
+    for yaml_sti in YAML_FILER_DEFAULT:
+        if os.path.exists(yaml_sti):
+            meta = load_yaml(yaml_sti).get("meta", {})
+            hn = meta.get("html_navn")
+            if hn:
+                område_titler[hn] = meta.get("titel", hn)
 
     # Indlæs entries fra entries.yaml og fordel på måneder og område
     if os.path.exists(_entries_fil):
@@ -544,9 +560,9 @@ def flet_almanakker(projekter_data, entries_fil=None):
                                   for p in e_kopi.get("plante_id", []) if p]
         måneder[måned_nr - 1]["entries"].append(e_kopi)
 
-    # Sortér entries inden for hver måned
+    # Sortér entries inden for hver måned (stigende dato)
     for mån in måneder:
-        mån["entries"].sort(key=lambda e: str(e["dato"]), reverse=True)
+        mån["entries"].sort(key=lambda e: str(e["dato"]))
 
     return måneder
 
@@ -2666,6 +2682,19 @@ def generer_alle(yaml_filer=None) -> list:
         css_rod = str(OUT_MAPPE.parent / "style.css")
         skriv_hvis_ændret(css_rod, css_tekst)
         os.chmod(css_rod, 0o644)
+
+    _lokal_js = Path.cwd() / "static" / "almanak-filter.js"
+    js_kilde = str(_lokal_js if _lokal_js.exists() else Path(__file__).parent / "static" / "almanak-filter.js")
+    if os.path.exists(js_kilde):
+        js_tekst = Path(js_kilde).read_text(encoding="utf-8")
+        # Kopiér kun til årsmappe — almanak-filter.js bruges kun af almanak.html
+        js_dest = os.path.join(OUT_MAPPE, "almanak-filter.js")
+        if skriv_hvis_ændret(js_dest, js_tekst):
+            os.chmod(js_dest, 0o644)
+            print(f"✅ JS kopieret: {js_dest}")
+        else:
+            print(f"ℹ️  JS uændret: {js_dest}")
+        upload_filer.append((js_dest, "almanak-filter.js"))
 
     fotos_basis = PROJECT_ROOT / "fotos"
     if fotos_basis.exists():
