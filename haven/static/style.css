@@ -58,6 +58,15 @@ body {
   margin: 0 auto;
 }
 
+/* ── Anker-scroll: kompenser for sticky header (54px) ── */
+.plante-kort,
+.plante-gruppe,
+.alm-måned,
+.alm-entry,
+h2[id] {
+  scroll-margin-top: 70px;
+}
+
 /* ── Site Header ── */
 .site-header {
   background: #fff;
