@@ -511,6 +511,16 @@ def flet_almanakker(projekter_data, entries_fil=None):
             e_kopi = dict(e)
             e_kopi["kilde"]     = område_titler.get(oid, oid)
             e_kopi["css_kilde"] = f"kilde-{oid.replace('_','-')}"
+            # Normaliser plante_id og berig med plantenavne
+            pid = e_kopi.get("plante_id")
+            if pid is None:
+                e_kopi["plante_id"] = []
+            elif isinstance(pid, str):
+                e_kopi["plante_id"] = [pid] if pid else []
+            else:
+                e_kopi["plante_id"] = list(pid)
+            e_kopi["plante_navne"] = [PLANTE_DB.get(p, {}).get("navn", p)
+                                      for p in e_kopi["plante_id"] if p]
             måneder[måned_nr - 1]["entries"].append(e_kopi)
 
     # Indlæs entries fra markdown-mappe
@@ -527,6 +537,9 @@ def flet_almanakker(projekter_data, entries_fil=None):
         e_kopi.setdefault("titel", "")
         e_kopi["kilde"]     = område_titler.get(oid, oid)
         e_kopi["css_kilde"] = f"kilde-{oid.replace('_','-')}"
+        # plante_id er allerede normaliseret til liste af _les_entries_mappe
+        e_kopi["plante_navne"] = [PLANTE_DB.get(p, {}).get("navn", p)
+                                  for p in e_kopi.get("plante_id", []) if p]
         måneder[måned_nr - 1]["entries"].append(e_kopi)
 
     # Sortér entries inden for hver måned

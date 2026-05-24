@@ -110,6 +110,9 @@
           <h4 class="alm-titel">{{ entry.titel }}</h4>
           <span class="alm-kilde-pill">{{ entry.kilde }}</span>
           <div class="alm-tags">
+            {% for navn in entry.plante_navne | default([]) %}
+            <span class="alm-tag alm-tag-plante">🌱 {{ navn }}</span>
+            {% endfor %}
             {% for tag in entry.tags | default([]) %}
             <span class="alm-tag">{{ tag }}</span>
             {% endfor %}
