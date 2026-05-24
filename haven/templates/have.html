@@ -152,7 +152,7 @@
           <h4 class="alm-titel">{{ entry.titel }}</h4>
           <div class="alm-tags">
             {% for navn in entry.plante_navne | default([]) %}
-            <span class="alm-tag alm-tag-plante">🌱 {{ navn }}</span>
+            <a class="alm-tag alm-tag-plante" href="{{ op_sti | default('../') }}søg.html?q={{ navn | urlencode }}">🌱 {{ navn }}</a>
             {% endfor %}
             {% for tag in entry.tags | default([]) %}
             <span class="alm-tag">{{ tag }}</span>

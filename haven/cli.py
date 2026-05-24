@@ -305,6 +305,7 @@ def lav_jinja_env():
 
     import markdown as _md
     _md_exts = ["fenced_code"]
+    import urllib.parse as _urlparse
     env.filters["md"]               = lambda t: _md.markdown(str(t), extensions=_md_exts)
     env.filters["aktiv_afgrøde"]    = aktiv_afgrøde
     env.filters["zone_succession"]  = zone_succession
@@ -312,6 +313,7 @@ def lav_jinja_env():
     env.filters["dato_fmt"]         = dato_fmt
     env.filters["splitlines"]       = splitlines
     env.filters["kontrast_farve"]   = kontrast_farve
+    env.filters["urlencode"]        = lambda s: _urlparse.quote(str(s), safe="")
     return env
 
 
