@@ -2870,7 +2870,7 @@ def ny_entry():
     planter = plante_data if isinstance(plante_data, list) else plante_data.get("planter", [])
     plante_choices = [
         questionary.Choice(title=f"{p.get('navn', '?')} ({p.get('id', '?')})", value=p.get("id"))
-        for p in planter
+        for p in sorted(planter, key=lambda p: p.get("navn", "").lower())
     ]
     valgte_planter = questionary.checkbox(
         "Planter (valgfri — brug mellemrum til at vælge, Enter for at bekræfte):",
@@ -3819,9 +3819,8 @@ def _søg_planter(søg: str, db: dict, maks: int = 8) -> list[dict]:
         ])).lower()
         if søg_l in felt:
             resultater.append(p)
-            if len(resultater) >= maks:
-                break
-    return resultater
+    resultater.sort(key=lambda p: p.get("navn", "").lower())
+    return resultater[:maks]
 
 
 def _plante_label(p: dict) -> str:
