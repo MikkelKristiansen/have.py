@@ -2433,6 +2433,14 @@ def _les_entries_mappe(entries_mappe: str) -> list:
         # Normaliser foto: string → {fil, tekst} som skabelonen forventer
         if "foto" in entry and isinstance(entry["foto"], str):
             entry["foto"] = {"fil": os.path.basename(entry["foto"]), "tekst": ""}
+        # Normaliser plante_id: string eller liste → altid liste
+        pid = entry.get("plante_id")
+        if pid is None:
+            entry["plante_id"] = []
+        elif isinstance(pid, str):
+            entry["plante_id"] = [pid] if pid else []
+        elif not isinstance(pid, list):
+            entry["plante_id"] = list(pid)
         entries.append(entry)
     return entries
 
@@ -2732,9 +2740,12 @@ def generer_alle(yaml_filer=None) -> list:
 
 
 def opret_entry(dato: str, zone: str, tekst: str,
-                plante_id: str = None, foto_kilde: str = None,
+                plante_id=None, foto_kilde: str = None,
                 _generer: bool = True) -> str:
-    """Opretter en dagbogsentry som markdown-fil. Returnerer stien til filen."""
+    """Opretter en dagbogsentry som markdown-fil. Returnerer stien til filen.
+
+    plante_id kan være en streng (enkelt plante) eller en liste af strenge.
+    """
     import shutil
     entries_mappe = os.path.join(DATA_MAPPE, "entries")
     os.makedirs(entries_mappe, exist_ok=True)
@@ -2772,9 +2783,19 @@ def opret_entry(dato: str, zone: str, tekst: str,
         except Exception as e:
             print(f"⚠️  Thumbnail ikke genereret: {e}")
 
+    # Normaliser plante_id til liste
+    if isinstance(plante_id, str):
+        plante_ids = [plante_id] if plante_id else []
+    else:
+        plante_ids = [p for p in (plante_id or []) if p]
+
     linjer = ["---", f"dato: {dato}", f"zone: {zone}"]
-    if plante_id:
-        linjer.append(f"plante_id: {plante_id}")
+    if len(plante_ids) == 1:
+        linjer.append(f"plante_id: {plante_ids[0]}")
+    elif len(plante_ids) > 1:
+        linjer.append("plante_id:")
+        for pid in plante_ids:
+            linjer.append(f"  - {pid}")
     if foto_sti:
         linjer.append(f"foto: {foto_sti}")
     linjer += ["---", "", tekst]
@@ -2834,12 +2855,17 @@ def ny_entry():
 
     plante_data = load_yaml(PLANTER_FIL)
     planter = plante_data if isinstance(plante_data, list) else plante_data.get("planter", [])
-    plante_choices = [questionary.Choice(title="(ingen)", value=None)]
-    plante_choices += [
+    plante_choices = [
         questionary.Choice(title=f"{p.get('navn', '?')} ({p.get('id', '?')})", value=p.get("id"))
         for p in planter
     ]
-    plante_id = questionary.select("Plante (valgfri):", choices=plante_choices).ask()
+    valgte_planter = questionary.checkbox(
+        "Planter (valgfri — brug mellemrum til at vælge, Enter for at bekræfte):",
+        choices=plante_choices,
+    ).ask()
+    if valgte_planter is None:
+        sys.exit(0)
+    plante_id = valgte_planter  # liste (evt. tom)
 
     tekst = (questionary.text(
         "Tekst:",
@@ -3649,14 +3675,25 @@ def generer_søg_json(out_rod: Path, data_rod: Path, plante_db: dict) -> Path:
                 continue
             dato_str = dato.isoformat() if hasattr(dato, "isoformat") else str(dato)
             zone = fm.get("zone") or fm.get("område_id", "")
-            plante_id = fm.get("plante_id")
-            plante = plante_db.get(plante_id, {}) if plante_id else {}
-            navn = None
-            if plante:
-                navn = plante.get("navn", "")
-                sort = plante.get("sort", "")
-                if sort:
-                    navn = f"{navn} – {sort}"
+            # Normaliser plante_id: string eller liste → altid liste
+            råpid = fm.get("plante_id")
+            if råpid is None:
+                plante_ids = []
+            elif isinstance(råpid, str):
+                plante_ids = [råpid] if råpid else []
+            else:
+                plante_ids = list(råpid)
+
+            # Byg kommasepareret navneliste til søgeindeks
+            navne_dele = []
+            for pid in plante_ids:
+                p = plante_db.get(pid, {})
+                if p:
+                    n = p.get("navn", "")
+                    s = p.get("sort", "")
+                    navne_dele.append(f"{n} – {s}" if s else n)
+            navn = ", ".join(navne_dele) if navne_dele else None
+
             bed_titel = zone_titler.get(zone, zone)
             søg_data.append({
                 "type":      "entry",
@@ -3664,7 +3701,7 @@ def generer_søg_json(out_rod: Path, data_rod: Path, plante_db: dict) -> Path:
                 "dato":      dato_str,
                 "bed":       zone,
                 "bed_titel": bed_titel,
-                "plante_id": plante_id,
+                "plante_id": plante_ids if len(plante_ids) != 1 else plante_ids[0],
                 "navn":      navn,
                 "tekst":     tekst,
                 "link":      f"{år}/almanak.html#{fil_stem}",
