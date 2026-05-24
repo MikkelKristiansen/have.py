@@ -744,6 +744,7 @@ def generer_samlet_almanak(projekter_yaml, almanak_sti, env, alle_planter=None, 
     output   = skabelon.render(år=år, måneder=måneder,
                                alle_planter=alle_planter_sorteret,
                                måneds_navne=MÅNEDER,
+                               aktuel_måned=datetime.date.today().month,
                                **(nav_context or {}))
 
     if skriv_hvis_ændret(almanak_sti, output):

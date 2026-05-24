@@ -58,8 +58,8 @@
 
 <div class="almanak-container">
 {% for mån in måneder %}
-  <section class="alm-måned" id="måned-{{ mån.måned }}">
-    <h2 class="alm-måned-navn">{{ mån.navn }}</h2>
+  <details class="alm-måned" id="måned-{{ mån.måned }}"{% if mån.måned == aktuel_måned %} open{% endif %}>
+    <summary class="alm-måned-navn">{{ mån.navn }}</summary>
 
     {% if mån.vejr %}
     <div class="måned-vejr">
@@ -148,7 +148,7 @@
     </div>
     {% endif %}
 
-  </section>
+  </details>
 {% endfor %}
 </div>
 
@@ -156,4 +156,14 @@
 
 {% block extra_scripts %}
 <script src="{{ rod_sti | default('') }}almanak-filter.js"></script>
+<script>
+  /* Auto-åbn <details> ved ankernav (fx fra navigationsmenuen) */
+  function åbnVedHash(hash) {
+    if (!hash) return;
+    const el = document.querySelector(hash);
+    if (el && el.tagName === 'DETAILS') el.open = true;
+  }
+  åbnVedHash(location.hash);
+  window.addEventListener('hashchange', () => åbnVedHash(location.hash));
+</script>
 {% endblock %}

@@ -39,7 +39,7 @@
       .forEach(el => el.classList.remove(AKTIV_KLASSE));
 
     // Vis alle månedssektioner igen
-    document.querySelectorAll('section.alm-måned')
+    document.querySelectorAll('details.alm-måned')
       .forEach(s => { s.hidden = false; });
 
     const status = document.getElementById('alm-filter-status');
@@ -49,7 +49,7 @@
   }
 
   function opdaterMåneder() {
-    document.querySelectorAll('section.alm-måned').forEach(sektion => {
+    document.querySelectorAll('details.alm-måned').forEach(sektion => {
       const entries = sektion.querySelectorAll('article.alm-entry');
       // Måneder uden entries overhovedet vises altid
       if (entries.length === 0) { sektion.hidden = false; return; }
