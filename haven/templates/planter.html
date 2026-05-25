@@ -78,6 +78,13 @@
         <p class="plante-noter">{{ p.noter }}</p>
         {% endif %}
 
+        {% if p.pasning %}
+        <div class="plante-pasning">
+          <strong>Pasning</strong>
+          <p>{{ p.pasning | replace('\n', '<br>') | safe }}</p>
+        </div>
+        {% endif %}
+
         {% if p.placering or p.afstand or p.rækkeafstand or p.sådybde %}
         <dl class="plante-dyrkning">
           {% if p.placering %}<div><dt>Placering</dt><dd>{{ p.placering }}</dd></div>{% endif %}

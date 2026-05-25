@@ -3653,6 +3653,20 @@ def opdater_schema_plante_ids(plante_db: dict) -> None:
         print(f"ℹ️  Schema uændret: {schema_sti.name}")
 
 
+def opdater_schema_planter() -> None:
+    """Regenerer planter.schema.json fra Plante-modellen."""
+    import json
+    from haven.models import Plante
+    schema_sti = PROJECT_ROOT / "schema" / "planter.schema.json"
+    if not schema_sti.exists():
+        return
+    ny = json.dumps(Plante.model_json_schema(), ensure_ascii=False, indent=2) + "\n"
+    if skriv_hvis_ændret(schema_sti, ny):
+        print(f"✅ Schema regenereret fra Plante-modellen: {schema_sti.name}")
+    else:
+        print(f"ℹ️  Schema uændret: {schema_sti.name}")
+
+
 def generer_søg_json(out_rod: Path, data_rod: Path, plante_db: dict) -> Path:
     """Generer søg.json med alle entries på tværs af år. Returnerer stien til filen."""
     import json
@@ -5382,6 +5396,7 @@ def main():
     if args.kommando == "opdater-schema":
         PLANTE_DB.update(byg_plante_db(PLANTER_FIL))
         opdater_schema_plante_ids(PLANTE_DB)
+        opdater_schema_planter()
         sys.exit(0)
 
     if args.kommando == "check":

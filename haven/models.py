@@ -27,4 +27,5 @@ class Plante(BaseModel):
     høst_fra:    int | None = Field(None, ge=1, le=12)
     høst_til:    int | None = Field(None, ge=1, le=12)
     noter:       str | None = None
+    pasning:     str | None = None
     foto:        FotoModel | None = None

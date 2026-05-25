@@ -928,6 +928,25 @@ td { border: 1px solid #e0e0e0; padding: 6px 5px; text-align: center; }
   line-height: 1.5;
 }
 
+/* Pasningsanvisninger */
+.plante-pasning {
+  margin: 0 0 0.6rem;
+}
+.plante-pasning strong {
+  display: block;
+  font-size: 0.68rem;
+  color: #999;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+.plante-pasning p {
+  font-size: 0.8rem;
+  color: #555;
+  margin: 0.15rem 0 0;
+  line-height: 1.5;
+}
+
 /* Dyrkningsdetaljer */
 .plante-dyrkning {
   display: grid;

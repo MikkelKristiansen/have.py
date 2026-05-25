@@ -1,167 +1,305 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "planter.yaml",
-  "description": "Have.py planteregister — global plantebase på tværs af årstider",
-  "type": "object",
-  "required": ["planter"],
-  "additionalProperties": false,
-  "properties": {
-    "meta": {
-      "type": "object",
-      "description": "Metadata om filen",
-      "additionalProperties": true,
-      "properties": {
-        "titel":       { "type": "string", "description": "Sidetitel" },
-        "html_navn":   { "type": "string", "description": "Filnavn uden .html" },
-        "undertitel":  { "type": "string" },
-        "beskrivelse": { "type": "string" },
-        "ikon":        { "type": "string" },
-        "tags":        { "type": "array", "items": { "type": "string" } }
-      }
-    },
-    "planter": {
-      "type": "array",
-      "description": "Liste af planter i registret",
-      "items": { "$ref": "#/$defs/Plante" }
-    }
-  },
   "$defs": {
-    "Plante": {
-      "type": "object",
-      "required": ["id", "navn"],
-      "additionalProperties": false,
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unikt ID — bruges som plante_id i bed-YAML'er",
-          "pattern": "^[a-z0-9-]+$"
-        },
-        "navn": {
-          "type": "string",
-          "description": "Dansk plantenavn, fx 'Gulerødder'"
-        },
-        "sort": {
-          "type": ["string", "null"],
-          "description": "Sortsnavn, fx 'Nantes'"
-        },
-        "latin": {
-          "type": ["string", "null"],
-          "description": "Latinsk artsnavn (Wikidata P225), fx 'Daucus carota'"
-        },
-        "familie": {
-          "type": ["string", "null"],
-          "description": "Plantefamilie (Wikidata P171), fx 'Apiaceae'"
-        },
-        "wikidata": {
-          "type": ["string", "null"],
-          "description": "Wikidata Q-ID, fx 'Q41237'"
-        },
-        "wikipedia": {
-          "type": ["string", "null"],
-          "description": "Wikipedia-artiklens titel på engelsk, fx 'Carrot'"
-        },
-        "farve": {
-          "type": ["string", "null"],
-          "description": "Hex-farve til kalendervisning, fx '#fb8c00'",
-          "pattern": "^#[0-9a-fA-F]{6}$"
-        },
-        "placering": {
-          "type": ["string", "null"],
-          "description": "Lysforhold — typisk 'Sol', 'Halvskygge', 'Skygge' eller kombinationer"
-        },
-        "afstand": {
-          "anyOf": [
-            { "type": "integer", "minimum": 1 },
-            { "type": "string" },
-            { "type": "null" }
-          ],
-          "description": "Planteafstand i cm"
-        },
-        "rækkeafstand": {
-          "anyOf": [
-            { "type": "integer", "minimum": 1 },
-            { "type": "string" },
-            { "type": "null" }
-          ],
-          "description": "Rækkeafstand i cm"
-        },
-        "sådybde": {
-          "type": ["number", "null"],
-          "description": "Sådybde i cm"
-        },
-        "indendørs": {
-          "anyOf": [
-            { "type": "integer", "minimum": 1, "maximum": 12 },
-            { "type": "null" }
-          ],
-          "description": "Måned for forspiring indendørs (1=jan … 12=dec)"
-        },
-        "udplantning": {
-          "anyOf": [
-            { "type": "integer", "minimum": 1, "maximum": 12 },
-            { "type": "null" }
-          ],
-          "description": "Måned for udplantning (1=jan … 12=dec)"
-        },
-        "direkte": {
-          "anyOf": [
-            { "type": "integer", "minimum": 1, "maximum": 12 },
-            { "type": "null" }
-          ],
-          "description": "Måned for direkte såning (1=jan … 12=dec)"
-        },
-        "høst_fra": {
-          "anyOf": [
-            { "type": "integer", "minimum": 1, "maximum": 12 },
-            { "type": "null" }
-          ],
-          "description": "Første høstmåned (1=jan … 12=dec)"
-        },
-        "høst_til": {
-          "anyOf": [
-            { "type": "integer", "minimum": 1, "maximum": 12 },
-            { "type": "null" }
-          ],
-          "description": "Sidste høstmåned (1=jan … 12=dec)"
-        },
-        "noter": {
-          "type": ["string", "null"],
-          "description": "Fri tekst — vises på plantekortet på sitet"
-        },
-        "foto": {
-          "anyOf": [
-            { "$ref": "#/$defs/FotoModel" },
-            { "type": "null" }
-          ]
-        }
-      }
-    },
     "FotoModel": {
-      "type": "object",
-      "required": ["fil"],
-      "additionalProperties": false,
       "properties": {
         "fil": {
-          "type": "string",
-          "description": "Filnavn relativt til fotos/planter/, fx 'money-maker.jpg'"
+          "title": "Fil",
+          "type": "string"
         },
         "kilde": {
-          "type": ["string", "null"],
-          "description": "URL til kildesiden (Wikimedia Commons)"
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Kilde"
         },
         "url": {
-          "type": ["string", "null"],
-          "description": "Direkte URL til billedfilen"
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Url"
         },
         "licens": {
-          "type": ["string", "null"],
-          "description": "Licensbetegnelse, fx 'CC BY-SA 4.0'"
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Licens"
         },
         "forfatter": {
-          "type": ["string", "null"],
-          "description": "Fotografens navn"
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Forfatter"
         }
-      }
+      },
+      "required": [
+        "fil"
+      ],
+      "title": "FotoModel",
+      "type": "object"
     }
-  }
+  },
+  "properties": {
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "navn": {
+      "title": "Navn",
+      "type": "string"
+    },
+    "sort": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Sort"
+    },
+    "latin": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "kilde": "wikidata",
+      "prop": "P225",
+      "title": "Latin"
+    },
+    "familie": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "kilde": "wikidata",
+      "prop": "P171",
+      "title": "Familie"
+    },
+    "wikidata": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "kilde": "wizard",
+      "title": "Wikidata"
+    },
+    "farve": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Farve"
+    },
+    "placering": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Placering"
+    },
+    "afstand": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Afstand"
+    },
+    "rækkeafstand": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Rækkeafstand"
+    },
+    "sådybde": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Sådybde"
+    },
+    "indendørs": {
+      "anyOf": [
+        {
+          "maximum": 12,
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Indendørs"
+    },
+    "udplantning": {
+      "anyOf": [
+        {
+          "maximum": 12,
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Udplantning"
+    },
+    "direkte": {
+      "anyOf": [
+        {
+          "maximum": 12,
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Direkte"
+    },
+    "høst_fra": {
+      "anyOf": [
+        {
+          "maximum": 12,
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Høst Fra"
+    },
+    "høst_til": {
+      "anyOf": [
+        {
+          "maximum": 12,
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Høst Til"
+    },
+    "noter": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Noter"
+    },
+    "pasning": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Pasning"
+    },
+    "foto": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/FotoModel"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    }
+  },
+  "required": [
+    "id",
+    "navn"
+  ],
+  "title": "Plante",
+  "type": "object"
 }
