@@ -3179,6 +3179,9 @@ def ny_plante():
     # ── noter ─────────────────────────────────────────────────────────────────
     noter = (questionary.text("Noter (Enter = ingen):").ask() or "").strip() or None
 
+    # ── pasning ───────────────────────────────────────────────────────────────
+    pasning = (questionary.text("Pasning (Enter = ingen):").ask() or "").strip() or None
+
     # ── foto ──────────────────────────────────────────────────────────────────
     foto = None
 
@@ -3286,6 +3289,8 @@ def ny_plante():
         plante["høst_til"] = høst_til
     if noter:
         plante["noter"] = noter
+    if pasning:
+        plante["pasning"] = pasning
     plante["foto"] = foto
 
     gem_pid, yaml_blok = opret_plante(plante)
@@ -3356,6 +3361,7 @@ def ret_i_plante_yaml():
         ("høst_fra",     "Høst fra"),
         ("høst_til",     "Høst til"),
         ("noter",        "Noter"),
+        ("pasning",      "Pasning"),
         ("foto",         "Foto"),
     ]
 
@@ -3570,6 +3576,13 @@ def ret_i_plante_yaml():
                 default=str(nuværende or ""),
             ).ask() or "").strip()
             ændringer["noter"] = ny_val or None
+
+        elif felt == "pasning":
+            ny_val = (questionary.text(
+                "Pasning (Enter = fjern):",
+                default=str(nuværende or ""),
+            ).ask() or "").strip()
+            ændringer["pasning"] = ny_val or None
 
         elif felt == "foto":
             nuværende_foto = nuværende if isinstance(nuværende, dict) else {}
