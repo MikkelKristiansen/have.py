@@ -322,11 +322,14 @@ _YAML_FEJL_HINTS = [
     ("could not find expected ':'",       "Mangler kolon (:) efter en nøgle — eller er der et uventet tegn?"),
     ("mapping values are not allowed",    "En værdi med kolon (:) skal sættes i anførselstegn, f.eks. \"tekst: med kolon\""),
     ("found character '\\t'",             "Tab-tegn er ikke tilladt i YAML — brug mellemrum til indrykning"),
-    ("expected '<document start>'",       "Uventet tegn i starten af filen — mangler der et # foran en kommentar?"),
+    ("expected '<document start>'",       "Mangler der et # foran en kommentar, eller er indrykningen forkert?"),
     ("found unexpected ':'",              "Uventet kolon — værdier med kolon skal i anførselstegn"),
-    ("found unexpected end of stream",   "Filen slutter uventet — mangler der en afsluttende linje?"),
+    ("found unexpected end of stream",    "Filen slutter uventet — mangler der en afsluttende linje?"),
     ("could not determine a constructor", "Ukendt YAML-type — brug anførselstegn rundt om værdien"),
 ]
+
+_KONTEKST_LINJER_FØR = 5
+_KONTEKST_LINJER_EFTER = 2
 
 
 def load_yaml(sti):
@@ -348,15 +351,23 @@ def load_yaml(sti):
             kolonne  = mark.column
 
             linjer = tekst.splitlines()
+            fra = max(0, linje_nr - _KONTEKST_LINJER_FØR)
+            til = min(len(linjer), linje_nr + _KONTEKST_LINJER_EFTER + 1)
+
             print()
-            for i in range(max(0, linje_nr - 1), min(len(linjer), linje_nr + 2)):
+            for i in range(fra, til):
                 præfiks = "  → " if i == linje_nr else "    "
                 print(f"  {præfiks}{i + 1:3} │ {linjer[i]}")
-            print(f"       {'':3}   {' ' * kolonne}^")
-            print()
+            print(f"           {' ' * kolonne}^")
+
+            if linje_nr > 0:
+                print(f"\n  ⚠️  Fejlen kan være på eller før linje {linje_nr + 1} — YAML-parseren")
+                print(f"      rapporterer der hvor den opgiver, ikke nødvendigvis der hvor")
+                print(f"      ændringen er foretaget.")
 
             problem = (e.problem or "").lower()
             hint = next((h for nøgle, h in _YAML_FEJL_HINTS if nøgle in problem), None)
+            print()
             if hint:
                 print(f"  💡 {hint}")
             else:
