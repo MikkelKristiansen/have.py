@@ -15,7 +15,7 @@
 </header>
 
 <nav class="intern-nav">
-  {% if bede %}<a href="#bedoversigt">🌱 Bedoversigt</a>{% endif %}
+  {% if bede %}<a href="#bedoversigt">🌱 Sektionsoversigt</a>{% endif %}
   <a href="#kalender">📅 Sådato-kalender</a>
   {% if har_almanak %}
   <a href="#almanak">📖 Havealmanak</a>
@@ -28,9 +28,9 @@
 </div>
 {% endif %}
 
-{# ── Bedoversigt — vises kun hvis der er bede defineret ── #}
+{# ── Sektionsoversigt — vises kun hvis der er bede defineret ── #}
 {% if bede %}
-<h2 id="bedoversigt">Bedoversigt</h2>
+<h2 id="bedoversigt">Sektionsoversigt</h2>
 <div class="bed-tidsnav">
   <button class="tidsnav-pil" id="prevMåned" aria-label="Forrige måned">←</button>
   <span class="tidsnav-måned" id="månedLabel"></span>

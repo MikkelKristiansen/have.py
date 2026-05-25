@@ -24,7 +24,7 @@
       <a href="{{ jaar_sti | default('') }}index.html" class="nav-link{% if aktiv_side | default('') == 'hjem' %} aktiv{% endif %}">Hjem</a>
       <div class="nav-dropdown" id="bede-dropdown">
         <span class="nav-link nav-dropdown-toggle{% if aktiv_side | default('') in bede_ids %} aktiv{% endif %}">
-          Bede <span class="dropdown-pil">▾</span>
+          Sektioner <span class="dropdown-pil">▾</span>
         </span>
         <div class="nav-dropdown-menu">
           {% for b in nav_bede | default([]) %}
