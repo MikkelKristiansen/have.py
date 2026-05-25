@@ -69,8 +69,7 @@ MÅNEDER_LANG = ["januar","februar","marts","april","maj","juni",
 
 def byg_plante_db(sti: Path = PLANTER_FIL) -> dict:
     """Indlæser planter.yaml og returnerer en dict { id → plante_dict }."""
-    with open(sti, encoding="utf-8") as f:
-        data = yaml.safe_load(f)
+    data = load_yaml(sti)
     db = {}
     planter = data if isinstance(data, list) else data.get("planter", [])
     for plante in planter:
@@ -319,18 +318,54 @@ def lav_jinja_env():
 
 # ── YAML ───────────────────────────────────────────────────────────────────────
 
+_YAML_FEJL_HINTS = [
+    ("could not find expected ':'",       "Mangler kolon (:) efter en nøgle — eller er der et uventet tegn?"),
+    ("mapping values are not allowed",    "En værdi med kolon (:) skal sættes i anførselstegn, f.eks. \"tekst: med kolon\""),
+    ("found character '\\t'",             "Tab-tegn er ikke tilladt i YAML — brug mellemrum til indrykning"),
+    ("expected '<document start>'",       "Uventet tegn i starten af filen — mangler der et # foran en kommentar?"),
+    ("found unexpected ':'",              "Uventet kolon — værdier med kolon skal i anførselstegn"),
+    ("found unexpected end of stream",   "Filen slutter uventet — mangler der en afsluttende linje?"),
+    ("could not determine a constructor", "Ukendt YAML-type — brug anførselstegn rundt om værdien"),
+]
+
+
 def load_yaml(sti):
-    with open(sti, encoding="utf-8") as f:
-        try:
-            return yaml.safe_load(f)
-        except yaml.YAMLError as e:
-            print(f"❌ YAML-fejl i {sti}:")
-            if hasattr(e, "problem_mark"):
-                m = e.problem_mark
-                print(f"   Linje {m.line + 1}, kolonne {m.column + 1}: {e.problem}")
+    sti = Path(sti)
+    try:
+        tekst = sti.read_text(encoding="utf-8")
+    except OSError as e:
+        print(f"❌ Kan ikke læse {sti.name}: {e}")
+        sys.exit(1)
+
+    try:
+        return yaml.safe_load(tekst)
+    except yaml.YAMLError as e:
+        print(f"\n❌ YAML-fejl i {sti.name}")
+
+        if hasattr(e, "problem_mark"):
+            mark = e.problem_mark
+            linje_nr = mark.line          # 0-baseret
+            kolonne  = mark.column
+
+            linjer = tekst.splitlines()
+            print()
+            for i in range(max(0, linje_nr - 1), min(len(linjer), linje_nr + 2)):
+                præfiks = "  → " if i == linje_nr else "    "
+                print(f"  {præfiks}{i + 1:3} │ {linjer[i]}")
+            print(f"       {'':3}   {' ' * kolonne}^")
+            print()
+
+            problem = (e.problem or "").lower()
+            hint = next((h for nøgle, h in _YAML_FEJL_HINTS if nøgle in problem), None)
+            if hint:
+                print(f"  💡 {hint}")
             else:
-                print(f"   {e}")
-            sys.exit(1)
+                print(f"  Fejl: {e.problem}")
+        else:
+            print(f"  {e}")
+
+        print(f"\n  Se docs/skema.md for feltbeskrivelser og gyldige værdier.\n")
+        sys.exit(1)
 
 
 def normaliser_bed_data(data: dict) -> dict:
