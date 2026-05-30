@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+
+{% block title %}{{ titel }} {{ år }}{% endblock %}
+
+{% block extra_head %}
+{# Template læser zone_type — 'husdyr' giver register + observationslog i stedet for bedoversigt. #}
+<style>
+  .hons-tabel { width: 100%; border-collapse: collapse; margin: 1rem 0 2.5rem; font-size: .95rem; }
+  .hons-tabel th, .hons-tabel td { text-align: left; padding: .55rem .75rem; border-bottom: 1px solid #e2e2da; }
+  .hons-tabel th { font-size: .72rem; text-transform: uppercase; letter-spacing: .04em; color: var(--grøn-mørk); }
+  .hons-tabel tr.udgaaet td { opacity: .5; }
+  .hons-status { display: inline-block; font-size: .72rem; padding: .12rem .55rem; border-radius: 1rem; }
+  .hons-status.aktiv   { background: var(--grøn-5); color: var(--grøn-2); }
+  .hons-status.udgaaet { background: #ececec; color: #777; }
+  .hons-log { list-style: none; padding: 0; margin: 1rem 0 2rem; }
+  .hons-log li { display: flex; gap: .85rem; padding: .7rem .25rem; border-bottom: 1px solid #ececec; align-items: baseline; }
+  .hons-log .ikon { font-size: 1.4rem; line-height: 1; flex: 0 0 auto; }
+  .hons-log .krop { flex: 1 1 auto; }
+  .hons-log .top { display: flex; gap: .6rem; align-items: baseline; flex-wrap: wrap; }
+  .hons-log .type-label { font-weight: 600; color: var(--grøn-mørk); }
+  .hons-log .dato { color: #999; font-size: .8rem; }
+  .hons-log .resume { color: #333; margin-top: .15rem; }
+  .hons-log .noter { color: #777; font-style: italic; font-size: .88rem; margin-top: .15rem; }
+  .hons-tom { color: #999; font-style: italic; padding: 1rem 0; }
+</style>
+{% endblock %}
+
+{% block indhold %}
+{% if ikon_billede %}
+<header class="hero hero--mini" style="background-image: url('{{ ikon_billede }}')">
+{% else %}
+<header class="hero hero--mini hero--groen">
+{% endif %}
+  <div class="hero-deco">{{ ikon }}</div>
+  <h1>{{ titel }} <em>{{ år }}</em></h1>
+  {% if undertitel %}<p class="hero-sub">{{ undertitel }}</p>{% endif %}
+  <div class="hero-divider"></div>
+</header>
+
+<nav class="intern-nav">
+  <a href="#register">🐔 Høne-register</a>
+  <a href="#log">📋 Observationer</a>
+  {% if har_ics %}<a href="{{ rod_sti | default('') }}{{ ics_fil }}">🐣 Klække-kalender (.ics)</a>{% endif %}
+</nav>
+
+{% if beskrivelse %}
+<div class="område-intro">
+  <p class="område-beskrivelse">{{ beskrivelse }}</p>
+</div>
+{% endif %}
+
+<h2 id="register">Høne-register</h2>
+{% if dyr %}
+<table class="hons-tabel">
+  <thead>
+    <tr><th>Race</th><th>Farve / mærke</th><th>Fødselsdato</th><th>Status</th></tr>
+  </thead>
+  <tbody>
+  {% for d in dyr %}
+    <tr class="{{ 'udgaaet' if not d.get('aktiv', True) else 'aktiv' }}">
+      <td>{{ d.race | default('?') }}</td>
+      <td>{{ d.farve | default('—') }}</td>
+      <td>{{ d.get('fødselsdato') | default('—', true) }}</td>
+      <td>
+        {% if d.get('aktiv', True) %}
+        <span class="hons-status aktiv">aktiv</span>
+        {% else %}
+        <span class="hons-status udgaaet">udgået</span>
+        {% endif %}
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="hons-tom">Ingen høner registreret endnu. Kør <code>have hons ny-høne</code>.</p>
+{% endif %}
+
+<h2 id="log">Observationer</h2>
+{% if entries %}
+<ul class="hons-log">
+  {% for e in entries %}
+  <li>
+    <span class="ikon">{{ e.ikon }}</span>
+    <span class="krop">
+      <span class="top">
+        <span class="type-label">{{ e.type_label }}</span>
+        <span class="dato">{{ e.dato | dato_fmt }}</span>
+      </span>
+      {% if e.resume %}<div class="resume">{{ e.resume }}</div>{% endif %}
+      {% if e.noter %}<div class="noter">{{ e.noter }}</div>{% endif %}
+    </span>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="hons-tom">Ingen observationer endnu. Kør <code>have hons ny-obs</code>.</p>
+{% endif %}
+{% endblock %}

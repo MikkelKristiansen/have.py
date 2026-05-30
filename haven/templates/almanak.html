@@ -54,9 +54,12 @@
 </table>
 </div>
 
-<h2 id="almanak" class="side-skift">📖 Månedsoversigt</h2>
+<div class="fold-toggle-header side-skift">
+  <h2 id="almanak">📖 Månedsoversigt</h2>
+  <button class="fold-alle-btn" data-fold="almanak-container">Fold alle ud</button>
+</div>
 
-<div class="almanak-container">
+<div class="almanak-container" id="almanak-container">
 {% for mån in måneder %}
   <details class="alm-måned" id="måned-{{ mån.måned }}"{% if mån.måned == aktuel_måned %} open{% endif %}>
     <summary class="alm-måned-navn">{{ mån.navn }}</summary>

@@ -331,10 +331,36 @@ nav.intern-nav a.aktiv {
   font-style: italic;
 }
 
+/* ── Fold alle ud/sammen ── */
+.fold-toggle-header { display: flex; align-items: baseline; gap: 1rem; margin-top: 2rem; margin-bottom: .25rem; }
+.fold-toggle-header h2 { margin: 0; flex: 1; }
+.fold-alle-btn {
+  font-size: .72rem; color: var(--grøn-mørk); background: none;
+  border: 1px solid currentColor; border-radius: 3px;
+  cursor: pointer; white-space: nowrap; opacity: .6;
+  padding: .15rem .55rem; font-family: inherit; line-height: 1.5;
+}
+.fold-alle-btn:hover { opacity: 1; }
+
 /* ── Bede ── */
 .bede-container { display: flex; flex-direction: column; gap: 1.5rem; }
-.bed-label { font-weight: bold; font-size: .85rem; margin-bottom: 4px; }
-.bed-mål { font-weight: normal; color: #888; font-size: .8rem; }
+.bed-label {
+  font-weight: bold; font-size: .85rem; margin-bottom: 4px;
+  list-style: none; display: flex; align-items: center; gap: .5rem;
+  cursor: pointer; user-select: none;
+  padding-bottom: .3rem;
+  border-bottom: 1px solid rgba(45, 90, 39, 0.15);
+}
+.bed-label::-webkit-details-marker { display: none; }
+.bed-label::before {
+  content: '▾';
+  font-size: .8rem; opacity: .5;
+  transform: rotate(-90deg);
+  transition: transform .2s ease;
+  flex-shrink: 0;
+}
+details.bed-wrap[open] > .bed-label::before { transform: rotate(0deg); }
+.bed-mål { font-weight: normal; color: #888; font-size: .8rem; margin-left: auto; }
 .bed-beskrivelse { font-size: .75rem; color: #666; font-style: italic; margin-bottom: 4px; }
 .bed {
   display: flex; border: 2px solid var(--grøn-mørk);

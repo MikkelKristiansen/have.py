@@ -104,6 +104,25 @@
         document.getElementById('arkiv-dropdown').classList.toggle('åben');
       }
     });
+
+  // Fold alle ud/sammen knapper
+  document.querySelectorAll("[data-fold]").forEach(knap => {
+    const container = document.getElementById(knap.dataset.fold);
+    if (!container) return;
+    function opdaterFoldKnap() {
+      const alle = container.querySelectorAll("details");
+      const alleÅbne = alle.length > 0 && [...alle].every(d => d.open);
+      knap.textContent = alleÅbne ? "Fold alle sammen" : "Fold alle ud";
+    }
+    knap.addEventListener("click", () => {
+      const alle = container.querySelectorAll("details");
+      const alleÅbne = [...alle].every(d => d.open);
+      alle.forEach(d => d.open = !alleÅbne);
+      opdaterFoldKnap();
+    });
+    container.addEventListener("toggle", opdaterFoldKnap, true);
+    opdaterFoldKnap();
+  });
 </script>
 
 {% block extra_scripts %}{% endblock %}

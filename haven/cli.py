@@ -37,6 +37,7 @@ AKTIVT_ÅR   = _config["aktivt_år"]
 DATA_MAPPE  = data_mappe(_config)
 OUT_MAPPE   = out_mappe(_config)
 PLANTER_FIL = sti(_config, "data") / "planter.yaml"
+DYR_FIL     = sti(_config, "data") / "dyr.yaml"
 ALMANAK_FIL = DATA_MAPPE / "almanak.yaml"
 ENTRIES_FIL = DATA_MAPPE / "entries.yaml"
 
@@ -94,6 +95,47 @@ def opslag_plante(plante_id: str) -> dict:
 def berig_kalender_planter(plante_id_liste: list) -> list:
     """Konverterer liste af plante_id'er til berigede plante-dicts."""
     return [opslag_plante(pid) for pid in plante_id_liste if pid]
+
+
+# ── Dyreregister (høns m.m.) ─────────────────────────────────────────────────────
+
+def byg_dyr_db(sti: Path = DYR_FIL) -> dict:
+    """Indlæser dyr.yaml og returnerer en dict { id → dyr_dict }.
+
+    Samme mønster som byg_plante_db. Returnerer tom dict hvis filen mangler —
+    dyreregistret er valgfrit og kun relevant for husdyr-zoner.
+    """
+    if not os.path.exists(sti):
+        return {}
+    data = load_yaml(sti)
+    db = {}
+    dyr = data if isinstance(data, list) else data.get("dyr", [])
+    for d in dyr or []:
+        if "id" in d:
+            db[d["id"]] = d
+        else:
+            print(f"[ADVARSEL] Dyr uden id: {d.get('race', '?')}", file=sys.stderr)
+    return db
+
+
+DYR_DB: dict = {}  # Populeres i generer_alle via DYR_DB.update(byg_dyr_db())
+
+
+def _dyr_label(d: dict) -> str:
+    """Vis et dyr som 'race farve' (til lister og overskrifter)."""
+    dele = [str(d.get("race", "")).strip(), str(d.get("farve", "")).strip()]
+    return " ".join(p for p in dele if p) or d.get("id", "?")
+
+
+# Hønse-entry-typer: ikon + dansk label. Styrer både wizard-valg og visning.
+HONS_TYPER = {
+    "æglægning":    {"ikon": "🥚", "label": "Æglægning"},
+    "ruge-start":   {"ikon": "🐣", "label": "Rugestart"},
+    "foderkøb":     {"ikon": "🌾", "label": "Foderkøb"},
+    "sundhedsobs":  {"ikon": "🩺", "label": "Sundhedsobservation"},
+    "dødsfald":     {"ikon": "🪦", "label": "Dødsfald"},
+    "fjerfældning": {"ikon": "🪶", "label": "Fjerfældning"},
+}
 
 
 # ── L2: Strukturel validering af plantedatabasen ───────────────────────────────
@@ -186,8 +228,13 @@ def _print_fejl_og_afslut(fejl: list) -> None:
 
 
 def kontrast_farve(hex_farve: str) -> str:
-    hex_farve = hex_farve.lstrip("#")
-    r, g, b = (int(hex_farve[i:i+2], 16) / 255 for i in (0, 2, 4))
+    hex_farve = (hex_farve or "").lstrip("#")
+    if len(hex_farve) != 6:
+        return "#000000"  # Manglende/ugyldig farve — antag lys baggrund, sort tekst
+    try:
+        r, g, b = (int(hex_farve[i:i+2], 16) / 255 for i in (0, 2, 4))
+    except ValueError:
+        return "#000000"
     def lin(c):
         return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
     luminans = 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b)
@@ -217,7 +264,9 @@ def lav_jinja_env():
             result = {**p, **afgrøde}
             result.setdefault("plante", p.get("navn") or zone.get("navn") or pid or "")
             result.setdefault("sort",   p.get("sort", ""))
-            result.setdefault("farve",  p.get("farve", "#c8e6c9"))
+            # 'or'-coalescing (ikke setdefault): en eksplicit farve: null i planten
+            # må ikke overleve som None — det crasher kontrast_farve i templaten.
+            result["farve"] = result.get("farve") or p.get("farve") or "#c8e6c9"
             result["efterfølger"] = efterfølger
             return result
 
@@ -293,7 +342,7 @@ def lav_jinja_env():
             resultat.append({
                 "plante":    p.get("navn") or zone.get("navn") or pid or "",
                 "sort":      a.get("sort") or p.get("sort") or "",
-                "farve":     p.get("farve", "#c8e6c9"),
+                "farve":     p.get("farve") or "#c8e6c9",
                 "fra":       fra,
                 "til":       til,
                 "fra_navn":  MÅNEDER[fra - 1],
@@ -467,7 +516,7 @@ def generer_html(yaml_sti, html_sti, env, alle_planter, nav_context=None,
                 except (KeyError, IndexError, ValueError):
                     pass
         # Indlæs entries fra markdown-mappe
-        entries_mappe = os.path.join(_data_mappe, "entries")
+        entries_mappe = os.path.join(_data_mappe, "entries", "sektioner")
         for e in _les_entries_mappe(entries_mappe):
             if (e.get("zone") or e.get("område_id", "")) != html_navn:
                 continue
@@ -500,6 +549,7 @@ def generer_html(yaml_sti, html_sti, env, alle_planter, nav_context=None,
         måneder         = MÅNEDER,
         har_almanak     = har_almanak,
         almanak_måneder = almanak_måneder,
+        aktuel_måned    = datetime.date.today().month,
         **(nav_context or {}),
     )
     if skriv_hvis_ændret(html_sti, output):
@@ -507,6 +557,197 @@ def generer_html(yaml_sti, html_sti, env, alle_planter, nav_context=None,
     else:
         print(f"ℹ️  HTML uændret: {html_sti}")
 
+
+
+def _les_hons_entries(mappe) -> list:
+    """Læs hønse-entries (én YAML-fil pr. entry) fra entries/{zone}/-mappen."""
+    entries = []
+    if not os.path.isdir(mappe):
+        return entries
+    for fil in sorted(os.listdir(mappe)):
+        if not (fil.endswith(".yaml") or fil.endswith(".yml")):
+            continue
+        e = load_yaml(os.path.join(mappe, fil))
+        if not isinstance(e, dict):
+            continue
+        e = dict(e)
+        for nøgle in ("dato", "forventet_klæk"):
+            if hasattr(e.get(nøgle), "isoformat"):
+                e[nøgle] = e[nøgle].isoformat()
+        e["_fil"] = Path(fil).stem
+        entries.append(e)
+    return entries
+
+
+def _hons_resume(e: dict) -> str:
+    """Byg en kort, menneskelæselig opsummering af en hønse-entry til loggen."""
+    t = e.get("type", "")
+    dele: list = []
+    if t == "æglægning":
+        return f"{e.get('æg', 0)} æg"
+    if t == "ruge-start":
+        if e.get("høne_label"):
+            dele.append(e["høne_label"])
+        if e.get("æg_antal") is not None:
+            dele.append(f"{e['æg_antal']} æg lagt til rugning")
+        if e.get("forventet_klæk"):
+            dele.append(f"forventet klæk {e['forventet_klæk']}")
+    elif t == "foderkøb":
+        if e.get("foder_type"):
+            dele.append(str(e["foder_type"]))
+        if e.get("mængde_kg") is not None:
+            dele.append(f"{e['mængde_kg']} kg")
+        if e.get("pris") is not None:
+            dele.append(f"{e['pris']} kr")
+        if e.get("butik"):
+            dele.append(str(e["butik"]))
+    elif t == "sundhedsobs":
+        if e.get("høne_label"):
+            dele.append(e["høne_label"])
+        else:
+            dele.append("hele flokken")
+        if e.get("observation"):
+            dele.append(str(e["observation"]))
+        if e.get("handling"):
+            dele.append(f"→ {e['handling']}")
+    elif t == "dødsfald":
+        if e.get("høne_label"):
+            dele.append(e["høne_label"])
+        if e.get("årsag"):
+            dele.append(f"årsag: {e['årsag']}")
+    elif t == "fjerfældning":
+        fase = e.get("fase", "")
+        return f"fældning ({fase})" if fase else "fældning"
+    return " · ".join(dele)
+
+
+def _berig_hons_entry(e: dict) -> dict:
+    """Berig en entry med ikon, type-label, opslået høne-navn og resumé."""
+    e = dict(e)
+    t = e.get("type", "")
+    cfg = HONS_TYPER.get(t, {"ikon": "📝", "label": t or "Note"})
+    e["ikon"] = cfg["ikon"]
+    e["type_label"] = cfg["label"]
+    hid = e.get("høne")
+    e["høne_label"] = _dyr_label(DYR_DB[hid]) if hid in DYR_DB else (hid or "")
+    e["resume"] = _hons_resume(e)
+    return e
+
+
+def generer_hons_html(yaml_sti, html_sti, env, nav_context=None, data_mappe_sti=None):
+    """Generer en husdyr-zoneside (hønsehus): register + observationslog.
+
+    Returnerer de berigede entries, så kalderen kan genbruge dem til ICS-generering.
+    """
+    _data_mappe = Path(data_mappe_sti) if data_mappe_sti else DATA_MAPPE
+    data = load_yaml(yaml_sti)
+    meta = data.get("meta", {})
+    html_navn = meta.get("html_navn", Path(yaml_sti).stem)
+    # zone-typer: 'husdyr' aktiverer alternativ template og wizard-sæt.
+    # Zoner uden 'type' behandles som plantezoner (eksisterende opførsel).
+    zone_type = meta.get("type", "plante")
+
+    # Høne-register: aktive først, derefter race/farve
+    dyr = sorted(
+        DYR_DB.values(),
+        key=lambda d: (not d.get("aktiv", True), str(d.get("race", "")), str(d.get("farve", ""))),
+    )
+
+    # Observationslog: nyeste øverst
+    entries_mappe = os.path.join(_data_mappe, "entries", html_navn)
+    entries = [_berig_hons_entry(e) for e in _les_hons_entries(entries_mappe)]
+    entries.sort(key=lambda e: str(e.get("dato", "")), reverse=True)
+
+    har_ics = any(e.get("type") == "ruge-start" and e.get("forventet_klæk") for e in entries)
+
+    skabelon = env.get_template("hons.html")
+    output = skabelon.render(
+        titel        = meta.get("titel", "Hønsehuset"),
+        år           = meta.get("år", AKTIVT_ÅR),
+        ikon         = meta.get("ikon", "🐔"),
+        ikon_billede = meta.get("ikon_billede", ""),
+        undertitel   = meta.get("undertitel", ""),
+        beskrivelse  = meta.get("beskrivelse", ""),
+        zone_type    = zone_type,
+        dyr          = dyr,
+        entries      = entries,
+        har_ics      = har_ics,
+        ics_fil      = f"{html_navn}-{AKTIVT_ÅR}.ics",
+        **(nav_context or {}),
+    )
+    if skriv_hvis_ændret(html_sti, output):
+        print(f"✅ HTML genereret: {html_sti}")
+    else:
+        print(f"ℹ️  HTML uændret: {html_sti}")
+    return entries
+
+
+def generer_hons_ics(entries, ics_sti, år) -> bool:
+    """Generer en ICS-kalender med forventede klækninger fra ruge-start-entries.
+
+    Returnerer True hvis filen blev skrevet (mindst én klække-event), ellers False.
+    """
+    def ics_escape(s):
+        s = str(s).replace("\\", "\\\\").replace(",", "\\,").replace(";", "\\;")
+        s = s.replace("\r\n", "\\n").replace("\n", "\\n").replace("\r", "")
+        return s.strip()
+
+    def ics_fold(line):
+        chunks = []
+        while True:
+            if len(line.encode("utf-8")) <= 75:
+                chunks.append(line)
+                break
+            n = 75
+            while len(line[:n].encode("utf-8")) > 75:
+                n -= 1
+            chunks.append(line[:n])
+            line = " " + line[n:]
+        return "\r\n".join(chunks)
+
+    now_ts = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    vevents = []
+    for e in entries:
+        if e.get("type") != "ruge-start" or not e.get("forventet_klæk"):
+            continue
+        try:
+            d = datetime.date.fromisoformat(str(e["forventet_klæk"]))
+        except ValueError:
+            continue
+        dato_start = d.strftime("%Y%m%d")
+        dato_end   = (d + datetime.timedelta(days=1)).strftime("%Y%m%d")
+        høne = e.get("høne_label") or _dyr_label(DYR_DB.get(e.get("høne"), {})) or "?"
+        antal = e.get("æg_antal", "?")
+        lagt = e.get("dato", "")
+        description = ics_escape(f"{høne} — {antal} æg lagt {lagt}")
+        uid = f"hons-klaek-{dato_start}-{e.get('_fil', '')}@have.py"
+        vevents.append("\r\n".join([
+            "BEGIN:VEVENT",
+            f"UID:{uid}",
+            f"DTSTAMP:{now_ts}",
+            f"DTSTART;VALUE=DATE:{dato_start}",
+            f"DTEND;VALUE=DATE:{dato_end}",
+            ics_fold(f"SUMMARY:{ics_escape('🐣 Forventet klækning')}"),
+            ics_fold(f"DESCRIPTION:{description}"),
+            "END:VEVENT",
+        ]))
+
+    if not vevents:
+        return False
+
+    header = "\r\n".join([
+        "BEGIN:VCALENDAR",
+        "VERSION:2.0",
+        "PRODID:-//have.py//Hønsekalender//DA",
+        "CALSCALE:GREGORIAN",
+        "METHOD:PUBLISH",
+        f"X-WR-CALNAME:Hønsehuset {år}",
+    ])
+    indhold = header + "\r\n" + "\r\n".join(vevents) + "\r\nEND:VCALENDAR\r\n"
+    with open(ics_sti, "w", encoding="utf-8", newline="") as f:
+        f.write(indhold)
+    print(f"✅ Høns-ICS genereret: {ics_sti} ({len(vevents)} klækninger)")
+    return True
 
 
 def flet_almanakker(projekter_data, entries_fil=None):
@@ -588,7 +829,7 @@ def flet_almanakker(projekter_data, entries_fil=None):
             måneder[måned_nr - 1]["entries"].append(e_kopi)
 
     # Indlæs entries fra markdown-mappe
-    entries_mappe_md = Path(_entries_fil).parent / "entries"
+    entries_mappe_md = Path(_entries_fil).parent / "entries" / "sektioner"
     for e in _les_entries_mappe(str(entries_mappe_md)):
         oid = e.get("zone") or e.get("område_id", "")
         if hasattr(e.get("dato"), "isoformat"):
@@ -1517,6 +1758,31 @@ def _slug(tekst):
         slug = slug.replace(fra, til)
     slug = "".join(c for c in slug if c.isalnum() or c == "-")
     return slug.strip("-") or "have"
+
+
+def slugify(tekst: str) -> str:
+    """Slugificér tekst efter id-konventionen for planter.
+
+    Trin: dansk translitteration (æ→ae, ø→oe, å→aa) FØR ascii-encoding,
+    Unicode NFKD-normalisering, lowercase, alt ikke-alfanumerisk → bindestreg,
+    og strip af leading/trailing bindestreger. Resultatet indeholder kun a-z, 0-9, '-'.
+    """
+    import re as _re
+    import unicodedata as _ud
+    s = tekst or ""
+    for fra, til in (("æ", "ae"), ("ø", "oe"), ("å", "aa"),
+                     ("Æ", "ae"), ("Ø", "oe"), ("Å", "aa")):
+        s = s.replace(fra, til)
+    s = _ud.normalize("NFKD", s).encode("ascii", "ignore").decode("ascii")
+    s = s.lower()
+    s = _re.sub(r"[^a-z0-9]+", "-", s)
+    return s.strip("-")
+
+
+def plante_id(navn: str, sort: str | None = None) -> str:
+    """Byg et plante-id fra navn (+ sort hvis angivet) via slugify."""
+    tekst = f"{navn} {sort}" if sort else (navn or "")
+    return slugify(tekst)
 
 
 def generer_ics(almanak_sti, ics_sti, år, yaml_filer=None):
@@ -2595,6 +2861,10 @@ def generer_alle(yaml_filer=None) -> list:
         alle_planter = planter_data.get("planter", [])
     PLANTE_DB.update(byg_plante_db(PLANTER_FIL))
     print(f"✅ Plantedatabase indlæst: {len(alle_planter)} planter")
+    DYR_DB.clear()
+    DYR_DB.update(byg_dyr_db())
+    if DYR_DB:
+        print(f"✅ Dyreregister indlæst: {len(DYR_DB)} dyr")
     valider_planter(PLANTE_DB)
     valider_referencer(PLANTE_DB, yaml_filer)
 
@@ -2651,6 +2921,16 @@ def generer_alle(yaml_filer=None) -> list:
                 f"opdatér meta.år eller kør: have check"
             )
         html_sti = os.path.join(OUT_MAPPE, html_navn + ".html")
+        # zone-typer: 'husdyr' aktiverer alternativ template og wizard-sæt.
+        # Zoner uden 'type' behandles som plantezoner (eksisterende opførsel).
+        if meta.get("type") == "husdyr":
+            hons_entries = generer_hons_html(yaml_sti, html_sti, env, nav_context=nav_ctx(html_navn))
+            upload_filer.append((html_sti, html_navn + ".html"))
+            projekter.append(projekt_info(yaml_sti))
+            ics_sti = os.path.join(OUT_MAPPE, f"{html_navn}-{AKTIVT_ÅR}.ics")
+            if generer_hons_ics(hons_entries, ics_sti, AKTIVT_ÅR):
+                upload_filer.append((ics_sti, f"{html_navn}-{AKTIVT_ÅR}.ics"))
+            continue
         generer_html(yaml_sti, html_sti, env, alle_planter, nav_context=nav_ctx(html_navn))
         upload_filer.append((html_sti, html_navn + ".html"))
         projekter.append(projekt_info(yaml_sti))
@@ -2838,7 +3118,7 @@ def opret_entry(dato: str, zone: str, tekst: str,
     plante_id kan være en streng (enkelt plante) eller en liste af strenge.
     """
     import shutil
-    entries_mappe = os.path.join(DATA_MAPPE, "entries")
+    entries_mappe = os.path.join(DATA_MAPPE, "entries", "sektioner")
     os.makedirs(entries_mappe, exist_ok=True)
 
     basis = f"{dato}-{zone}"
@@ -3053,21 +3333,6 @@ def ny_plante():
 
     print()
 
-    # ── id ────────────────────────────────────────────────────────────────────
-    def _valider_pid(v):
-        v = v.strip()
-        if not v:
-            return "id er påkrævet"
-        if not _re.match(r"^[a-z0-9-]+$", v):
-            return "id må kun indeholde [a-z0-9-]"
-        if v in kendte_ids:
-            return f"{v!r} eksisterer allerede"
-        return True
-
-    pid = (questionary.text("Plante-id (fx 'spinat'):", validate=_valider_pid).ask() or "").strip()
-    if not pid:
-        sys.exit(0)
-
     # ── navn ──────────────────────────────────────────────────────────────────
     default_navn = wikidata_label or ""
 
@@ -3086,6 +3351,27 @@ def ny_plante():
 
     # ── sort ──────────────────────────────────────────────────────────────────
     sort = (questionary.text("Sort/Kultivar (fx 'Matador', Enter = ingen):").ask() or "").strip() or None
+
+    # ── id ────────────────────────────────────────────────────────────────────
+    id_forslag = plante_id(navn, sort)
+
+    def _valider_pid(v):
+        v = v.strip()
+        if not v:
+            return "id er påkrævet"
+        if not _re.match(r"^[a-z0-9-]+$", v):
+            return "id må kun indeholde [a-z0-9-]"
+        if v in kendte_ids:
+            return f"{v!r} eksisterer allerede"
+        return True
+
+    pid = (questionary.text(
+        "Plante-id:",
+        default=id_forslag,
+        validate=_valider_pid,
+    ).ask() or "").strip()
+    if not pid:
+        sys.exit(0)
 
     # ── latin ─────────────────────────────────────────────────────────────────
     def _valider_latin(v):
@@ -4166,6 +4452,269 @@ def nyt_bed():
 
 
 # ── Plant en plante ────────────────────────────────────────────────────────────
+
+def _markér_dyr_inaktiv(høne_id: str) -> None:
+    """Sæt aktiv: false på en høne i dyr.yaml (bevarer struktur via ruamel)."""
+    from ruamel.yaml import YAML as RuamelYAML
+    ry = RuamelYAML()
+    ry.preserve_quotes = True
+    ry.width = 120
+    if not os.path.exists(DYR_FIL):
+        return
+    with open(DYR_FIL, encoding="utf-8") as f:
+        data = ry.load(f)
+    dyr = data.get("dyr") if isinstance(data, dict) else data
+    for d in (dyr or []):
+        if d.get("id") == høne_id:
+            d["aktiv"] = False
+            with open(DYR_FIL, "w", encoding="utf-8") as f:
+                ry.dump(data, f)
+            print(f"  ✓ {høne_id} markeret som udgået (aktiv: false) i dyr.yaml")
+            return
+
+
+def hons_ny_høne():
+    """Wizard: tilføj en ny høne til dyr.yaml."""
+    import questionary
+    import re as _re
+    from ruamel.yaml import YAML as RuamelYAML
+    from ruamel.yaml.comments import CommentedMap, CommentedSeq
+
+    ry = RuamelYAML()
+    ry.preserve_quotes = True
+    ry.default_flow_style = False
+    ry.width = 120
+
+    race = questionary.text("Race:").ask()
+    if not race or not race.strip():
+        sys.exit(0)
+    race = race.strip()
+
+    farve = questionary.text("Farve/mærke (kan være tom):").ask()
+    if farve is None:
+        sys.exit(0)
+    farve = farve.strip()
+
+    fødsel = questionary.text(
+        "Fødselsdato (ISO, fx 2023-04-12 — kan være tom):",
+        validate=lambda v: (not v.strip()) or bool(_re.match(r"^\d{4}-\d{2}-\d{2}$", v.strip()))
+            or "Format: ÅÅÅÅ-MM-DD",
+    ).ask()
+    if fødsel is None:
+        sys.exit(0)
+    fødsel = fødsel.strip()
+
+    # Generér løbenummereret id: slug(race-farve)-N
+    db = byg_dyr_db()
+    basis = _slug(f"{race}-{farve}") if farve else _slug(race)
+    n = 1
+    nyt_id = f"{basis}-{n}"
+    while nyt_id in db:
+        n += 1
+        nyt_id = f"{basis}-{n}"
+
+    ny = CommentedMap()
+    ny["id"] = nyt_id
+    ny["race"] = race
+    if farve:
+        ny["farve"] = farve
+    if fødsel:
+        ny["fødselsdato"] = fødsel
+    ny["aktiv"] = True
+
+    import io
+    buf = io.StringIO()
+    ry.dump([ny], buf)
+    print("\n── YAML-preview ──────────────────────────────────────────")
+    print(buf.getvalue().rstrip())
+    print("──────────────────────────────────────────────────────────\n")
+
+    if not questionary.confirm(f"Tilføj '{nyt_id}' til dyr.yaml?", default=True).ask():
+        print("Afbrudt — ingen ændringer gemt.")
+        sys.exit(0)
+
+    if os.path.exists(DYR_FIL):
+        with open(DYR_FIL, encoding="utf-8") as f:
+            data = ry.load(f)
+    else:
+        data = None
+    if isinstance(data, dict):
+        if not data.get("dyr"):
+            data["dyr"] = CommentedSeq()
+        data["dyr"].append(ny)
+    else:
+        if data is None:
+            data = CommentedSeq()
+        data.append(ny)
+
+    with open(DYR_FIL, "w", encoding="utf-8") as f:
+        ry.dump(data, f)
+    print(f"✓ Høne '{nyt_id}' tilføjet til {DYR_FIL}")
+
+
+def hons_ny_obs():
+    """Wizard: registrér en hønse-observation som YAML-entry i entries/hons/."""
+    import questionary
+    import re as _re
+    from ruamel.yaml import YAML as RuamelYAML
+
+    # 1. Type
+    valgt_type = questionary.select(
+        "Hvilken type observation?",
+        choices=[questionary.Choice(title=f"{cfg['ikon']} {cfg['label']}", value=t)
+                 for t, cfg in HONS_TYPER.items()],
+    ).ask()
+    if not valgt_type:
+        sys.exit(0)
+
+    # 2. Dato
+    i_dag = datetime.date.today().isoformat()
+    dato = questionary.text(
+        "Dato:",
+        default=i_dag,
+        validate=lambda v: bool(_re.match(r"^\d{4}-\d{2}-\d{2}$", v)) or f"Ugyldigt datoformat: {v!r}",
+    ).ask()
+    if not dato:
+        sys.exit(0)
+
+    db = byg_dyr_db()
+    aktive = [d for d in db.values() if d.get("aktiv", True)]
+
+    def vælg_høne(prompt: str, valgfri: bool = False):
+        """Autocomplete over aktive høner — vis 'race farve', returnér id."""
+        if not aktive:
+            if not valgfri:
+                print("  ⚠️  Ingen aktive høner i dyr.yaml — feltet springes over.")
+            return None
+        labels = {f"{_dyr_label(d)} [{d['id']}]": d["id"] for d in aktive}
+        valg = questionary.autocomplete(
+            prompt,
+            choices=list(labels.keys()),
+            validate=lambda v: True if (valgfri and not v.strip()) else (v in labels)
+                or "Vælg en høne fra listen (Tab for forslag)",
+        ).ask()
+        if valg is None:
+            sys.exit(0)
+        return labels.get(valg.strip()) if valg.strip() else None
+
+    def _heltal(v):
+        return v.strip().isdigit() or "Skal være et heltal"
+
+    def _tal(v):
+        if not v.strip():
+            return True
+        try:
+            float(v.replace(",", "."))
+            return True
+        except ValueError:
+            return "Skal være et tal"
+
+    entry: dict = {"dato": dato, "type": valgt_type}
+
+    if valgt_type == "æglægning":
+        antal = questionary.text("Antal æg:", default="0", validate=_heltal).ask()
+        if antal is None:
+            sys.exit(0)
+        entry["æg"] = int(antal)
+
+    elif valgt_type == "ruge-start":
+        høne = vælg_høne("Høne (rugende):", valgfri=True)
+        if høne:
+            entry["høne"] = høne
+        antal = questionary.text("Antal æg lagt til rugning:", default="0", validate=_heltal).ask()
+        if antal is None:
+            sys.exit(0)
+        entry["æg_antal"] = int(antal)
+        klæk = (datetime.date.fromisoformat(dato) + datetime.timedelta(days=21)).isoformat()
+        entry["forventet_klæk"] = klæk
+        print(f"\n🐣 Forventet klækning: {klæk}  (sat-dato + 21 dage)\n")
+
+    elif valgt_type == "foderkøb":
+        foder = questionary.text("Foder-type (fx pellets):").ask()
+        if foder and foder.strip():
+            entry["foder_type"] = foder.strip()
+        mængde = questionary.text("Mængde i kg:", validate=_tal).ask()
+        if mængde is None:
+            sys.exit(0)
+        if mængde.strip():
+            tal = float(mængde.replace(",", "."))
+            entry["mængde_kg"] = int(tal) if tal == int(tal) else tal
+        pris = questionary.text("Pris i kr:", validate=_tal).ask()
+        if pris and pris.strip():
+            tal = float(pris.replace(",", "."))
+            entry["pris"] = int(tal) if tal == int(tal) else tal
+        butik = questionary.text("Butik:").ask()
+        if butik and butik.strip():
+            entry["butik"] = butik.strip()
+
+    elif valgt_type == "sundhedsobs":
+        høne = vælg_høne("Høne (Enter/tom = hele flokken):", valgfri=True)
+        if høne:
+            entry["høne"] = høne
+        obs = questionary.text("Observation:",
+                               validate=lambda v: bool(v.strip()) or "Observation er påkrævet").ask()
+        if not obs:
+            sys.exit(0)
+        entry["observation"] = obs.strip()
+        handling = questionary.text("Handling (kan være tom):").ask()
+        if handling and handling.strip():
+            entry["handling"] = handling.strip()
+
+    elif valgt_type == "dødsfald":
+        høne = vælg_høne("Høne:", valgfri=False)
+        if høne:
+            entry["høne"] = høne
+        årsag = questionary.text("Årsag (kan være tom):", default="ukendt").ask()
+        if årsag and årsag.strip():
+            entry["årsag"] = årsag.strip()
+
+    elif valgt_type == "fjerfældning":
+        fase = questionary.select("Fase:", choices=["start", "slut"]).ask()
+        if not fase:
+            sys.exit(0)
+        entry["fase"] = fase
+
+    noter = questionary.text("Noter (kan være tom):").ask()
+    if noter is None:
+        sys.exit(0)
+    if noter.strip():
+        entry["noter"] = noter.strip()
+
+    # Preview
+    ry = RuamelYAML()
+    ry.default_flow_style = False
+    ry.width = 120
+    ry.allow_unicode = True
+    import io
+    buf = io.StringIO()
+    ry.dump(entry, buf)
+    print("\n── Entry-preview ─────────────────────────────────────────")
+    print(buf.getvalue().rstrip())
+    print("──────────────────────────────────────────────────────────\n")
+
+    if not questionary.confirm("Gem denne observation?", default=True).ask():
+        print("Afbrudt — ingen ændringer gemt.")
+        sys.exit(0)
+
+    # Skriv entry-fil med kollisionshåndtering
+    mappe = os.path.join(DATA_MAPPE, "entries", "hons")
+    os.makedirs(mappe, exist_ok=True)
+    basis = f"{dato}-{_slug(valgt_type)}"
+    sti = os.path.join(mappe, basis + ".yaml")
+    n = 2
+    while os.path.exists(sti):
+        sti = os.path.join(mappe, f"{basis}-{n}.yaml")
+        n += 1
+    with open(sti, "w", encoding="utf-8") as f:
+        ry.dump(entry, f)
+    print(f"✓ Observation gemt: {sti}")
+
+    # Ved dødsfald: markér hønen udgået i dyr.yaml
+    if valgt_type == "dødsfald" and entry.get("høne"):
+        _markér_dyr_inaktiv(entry["høne"])
+
+    print("  Kør 'have build' for at opdatere sitet.")
+
 
 def plant_en_plante():
     """Interaktiv wizard til at plante en plante i et eksisterende bed."""
@@ -5420,6 +5969,12 @@ def main():
 
     subparsers.add_parser("ret-bed", help="Omfordel zone-bredder og tilføj nye zoner med ratio (interaktiv wizard)")
 
+    # Subkommando: hons — hønsemodul med underkommandoer
+    hons_parser = subparsers.add_parser("hons", help="Hønsemodul — observationer og dyreregister")
+    hons_sub = hons_parser.add_subparsers(dest="hons_kommando")
+    hons_sub.add_parser("ny-obs", help="Registrér en hønse-observation (interaktiv wizard)")
+    hons_sub.add_parser("ny-høne", help="Tilføj ny høne til dyr.yaml (interaktiv wizard)")
+
     # Subkommando: build (alias for default)
     subparsers.add_parser("build", help="Generer alle HTML-sider (alias for: have uden argumenter)")
 
@@ -5497,6 +6052,16 @@ def main():
 
     if args.kommando == "ret-bed":
         ret_bed()
+        sys.exit(0)
+
+    if args.kommando == "hons":
+        hk = getattr(args, "hons_kommando", None)
+        if hk == "ny-obs":
+            hons_ny_obs()
+        elif hk == "ny-høne":
+            hons_ny_høne()
+        else:
+            hons_parser.print_help()
         sys.exit(0)
 
     if args.kommando == "hent-vejr":

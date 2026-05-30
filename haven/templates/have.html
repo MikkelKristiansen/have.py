@@ -37,17 +37,17 @@
   <button class="tidsnav-pil" id="nextMåned" aria-label="Næste måned">→</button>
   <span class="tidsnav-snapshot">Øjebliksbillede</span>
 </div>
-<div class="bede-container">
+<div class="bede-container" id="have-bede-container">
 {% for bed in bede %}
   {% set max_bredde = bede | map(attribute='bredde_cm') | max %}
   {% set max_dybde  = bede | map(attribute='dybde_cm')  | max %}
   {% set bw_pct = (bed.bredde_cm / max_bredde * 100) | round(1) %}
   {% set bh_px  = [60, (bed.dybde_cm / max_dybde * 120) | int] | max %}
-  <div class="bed-wrap" style="width:{{ bw_pct }}%">
-    <div class="bed-label">
+  <details class="bed-wrap" style="width:{{ bw_pct }}%">
+    <summary class="bed-label">
       {{ bed.navn }}
       <span class="bed-mål">{{ bed.bredde_cm }} × {{ bed.dybde_cm }} cm</span>
-    </div>
+    </summary>
     {% if bed.beskrivelse %}
     <div class="bed-beskrivelse">{{ bed.beskrivelse }}</div>
     {% endif %}
@@ -82,7 +82,7 @@
       {% endfor %}
     </div>
     </div>
-  </div>
+  </details>
 {% endfor %}
 </div>
 {% endif %}
@@ -122,14 +122,15 @@
 
 {# ── Havealmanak ── #}
 {% if har_almanak %}
-<h2 id="almanak" class="side-skift">📖 Havealmanak</h2>
-<div class="almanak-container">
+<div class="fold-toggle-header side-skift">
+  <h2 id="almanak">📖 Havealmanak</h2>
+  <button class="fold-alle-btn" data-fold="have-almanak-container">Fold alle ud</button>
+</div>
+<div class="almanak-container" id="have-almanak-container">
 
 {% for mån in almanak_måneder %}
-  {% set har_indhold = mån.entries | default([]) | length > 0
-                    or mån.begivenheder | default([]) | length > 0 %}
-  <section class="alm-måned" id="måned-{{ mån.måned }}">
-    <h3 class="alm-måned-navn">{{ mån.navn }}</h3>
+  <details class="alm-måned" id="måned-{{ mån.måned }}"{% if mån.måned == aktuel_måned %} open{% endif %}>
+    <summary class="alm-måned-navn">{{ mån.navn }}</summary>
 
     {% if mån.indledning %}
     <p class="alm-indledning">{{ mån.indledning }}</p>
@@ -183,7 +184,7 @@
     </div>
     {% endif %}
 
-  </section>
+  </details>
 {% endfor %}
 
 </div>
@@ -243,6 +244,25 @@
     return næste;
   }
 
+  function opdaterSektioner() {
+    document.querySelectorAll("details.bed-wrap").forEach(detaljer => {
+      const zoner = detaljer.querySelectorAll(".zone");
+      let harAktiv = false;
+      for (const zone of zoner) {
+        const succStr = zone.dataset.succession;
+        if (succStr) {
+          try {
+            const afg = JSON.parse(succStr);
+            if (afg.length && aktivForMåned(afg, månedIdx)) { harAktiv = true; break; }
+          } catch(e) {}
+        } else if (zone.dataset.navn && zone.dataset.navn !== "—") {
+          harAktiv = true; break;
+        }
+      }
+      detaljer.open = harAktiv;
+    });
+  }
+
   function opdaterBede() {
     document.getElementById("månedLabel").textContent = MND[månedIdx-1];
     document.querySelectorAll(".zone").forEach(zone => {
@@ -285,6 +305,7 @@
         }
       }
     });
+    opdaterSektioner();
   }
 
   function åbn(zone) {

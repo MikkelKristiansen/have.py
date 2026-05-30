@@ -3,6 +3,21 @@
 Alle bemærkelsesværdige ændringer i dette projekt dokumenteres her.
 Format følger [Keep a Changelog](https://keepachangelog.com/da/1.0.0/).
 
+## [1.1.0] — 2026-05-30
+
+### Tilføjet
+- **Høns-modul** — ny zone-type `husdyr` til registrering af en hønseflok.
+  - `data/dyr.yaml` — dyreregister indlæst til `DYR_DB` (samme mønster som `planter.yaml`/`PLANTE_DB`).
+  - Zone-fil `data/{år}/hons.yaml` med `meta.type: husdyr` aktiverer hønse-template og hønse-ICS. Zoner uden `type` behandles som hidtil (plantezoner).
+  - Hønse-entries i `data/{år}/entries/hons/` som YAML-filer med typerne `æglægning`, `ruge-start`, `foderkøb`, `sundhedsobs`, `dødsfald` og `fjerfældning`.
+  - `have hons ny-obs` — wizard til at registrere en observation. Ved `ruge-start` beregnes `forventet_klæk` (dato + 21 dage); felter der refererer en høne bruger autocomplete over aktive høner. Ved `dødsfald` markeres hønen `aktiv: false` i `dyr.yaml`.
+  - `have hons ny-høne` — wizard til at tilføje en høne; `id` genereres som `slug(race-farve)-løbenummer`.
+  - HTML-side (`hons.html`) med høne-register og kronologisk observationslog, integreret i navigationen som øvrige zoner.
+  - `hons-{år}.ics` — ICS-kalender med forventede klækninger fra `ruge-start`-entries.
+
+### Rettet
+- Build crashede (`AttributeError` i `kontrast_farve`) hvis en plante havde `farve: null`. `aktiv_afgrøde`/`zone_succession` coalescer nu None til standardfarven, og `kontrast_farve` håndterer manglende/ugyldig hex robust.
+
 ## [1.0.0] — 2026-05-18
 
 ### Tilføjet

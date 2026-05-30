@@ -143,6 +143,88 @@ kalender_planter:         # planter der vises i sæsonkalenderen for dette afsni
 
 ---
 
+## Husdyr-zone (høns)
+
+En zone-fil med `meta.type: husdyr` behandles som en husdyr-zone i stedet for
+en plantezone. Den får en alternativ HTML-side (høne-register + observationslog)
+og et eget wizard-sæt (`have hons …`). Zoner **uden** `type`-felt behandles som
+hidtil (plantezoner).
+
+### data/{år}/hons.yaml
+
+```yaml
+meta:
+  år: 2026
+  titel: "Hønsehuset"
+  html_navn: "hons"       # output-filnavn + mappe-navn for entries
+  ikon: "🐔"
+  type: husdyr            # (påkrævet for husdyr-zone) aktiverer hønse-template
+  undertitel: "Æg, rugning & flokkens trivsel"
+  beskrivelse: "..."
+  tags: [Høns, Æg]
+```
+
+### data/dyr.yaml
+
+Globalt dyreregister, delt på tværs af år (samme niveau som `planter.yaml`).
+Indlæses til `DYR_DB`. Tilføj høner med `have hons ny-høne`.
+
+```yaml
+- id: australorp-sort-1   # (påkrævet) slug, bruges som reference i entries
+  race: Australorp        # (påkrævet) fritekst
+  farve: sort             # fritekst — skelner individer af samme race
+  fødselsdato: 2023-04-12  # valgfri, ISO-dato
+  aktiv: true             # default true; sættes false ved dødsfald
+```
+
+### data/{år}/entries/hons/
+
+Én YAML-fil pr. observation (`{dato}-{type}.yaml`). Felter pr. `type`:
+
+```yaml
+# æglægning
+dato: 2026-05-30
+type: æglægning
+æg: 4
+noter: "Rosa lagde ikke i dag"
+
+# ruge-start — forventet_klæk = dato + 21 dage (beregnes af wizarden),
+#              giver en VEVENT i hons-{år}.ics
+dato: 2026-05-30
+type: ruge-start
+høne: australorp-sort-1   # id fra dyr.yaml
+æg_antal: 9
+forventet_klæk: 2026-06-20
+
+# foderkøb
+dato: 2026-05-30
+type: foderkøb
+foder_type: pellets
+mængde_kg: 25
+pris: 189
+butik: Agrovi
+
+# sundhedsobs — høne valgfri (tom = hele flokken)
+dato: 2026-05-30
+type: sundhedsobs
+høne: australorp-sort-1
+observation: "halter på venstre ben"
+handling: "isoleret, holdes under observation"
+
+# dødsfald — wizarden sætter aktiv: false på hønen i dyr.yaml
+dato: 2026-05-30
+type: dødsfald
+høne: australorp-sort-1
+årsag: ukendt
+
+# fjerfældning — fase: start eller slut
+dato: 2026-05-30
+type: fjerfældning
+fase: start
+```
+
+---
+
 ## data/{år}/almanak.yaml
 
 Havealmanak med månedsvise indledninger og begivenheder pr. haveafsnit.
