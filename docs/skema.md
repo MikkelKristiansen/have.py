@@ -65,12 +65,14 @@ meta:                     # valgfri — bruges til forsidekortet for planteregis
   tags: [Drivhuset, Frugthaven]
 
 planter:                  # liste af planter (eller direkte liste uden nøgle)
-  - id: money-maker       # (påkrævet) unik streng — bruges som reference i bed-YAML
+  - id: tomater-money-maker  # (påkrævet) slugificeret "{navn} {sort}" — kun a-z, 0-9, bindestreg
+                             # æ→ae, ø→oe, å→aa. Genereres automatisk af `have ny-plante`.
     navn: Tomater         # (påkrævet) artsnavn vist på siden
     sort: Money Maker     # sortsnavne (vises som undertitel)
     latin: "Solanum lycopersicum"
+    familie: Natskyggefamilien  # plantefamilie — udfyldes automatisk af `have hent-fotos`
     wikipedia: Tomato     # Wikipedia-sidtitel — bruges til billedsøgning
-    wikidata: Q23240      # Wikidata QID — bruges til P18-billede (foretrækkes)
+    wikidata: Q23240      # Wikidata QID — bruges til P18-billede (foretrækkes frem for wikipedia)
     farve: "#e53935"      # (påkrævet) hex-farve til bedtegningen
     placering: Sol        # fritekst — Sol / Halvskygge / Skygge
     afstand: 50           # cm mellem planter i rækken
@@ -82,6 +84,7 @@ planter:                  # liste af planter (eller direkte liste uden nøgle)
     høst_fra: 7           # måned høst begynder
     høst_til: 10          # måned høst slutter
     noter: "Udplantes i drivhuset — ikke friland."
+    pasning: "Toppes ved 1,5 m. Fjern sideskud ugentligt."  # pasningsvejledning vist på plante-kortet
     foto:
       fil: money-maker.jpg    # filnavn i fotos/planter/
       licens: CC BY-SA 4.0
@@ -92,6 +95,10 @@ planter:                  # liste af planter (eller direkte liste uden nøgle)
 Kalenderfelterne `indendørs`, `direkte`, `udplantning`, `høst_fra`, `høst_til` angives
 alle som heltal 1–12. En plante med `høst_fra: 10` og `høst_til: 3` tolkes som
 wrap-around (efterår til forår).
+
+**Id-konvention:** `have ny-plante` foreslår automatisk et id baseret på navn og sort via
+`slugify()`: æ→ae, ø→oe, å→aa, kun a-z/0-9/bindestreg. Eksempler:
+`Gulerødder Nantes` → `guleroedder-nantes`, `Dild` (ingen sort) → `dild`.
 
 ---
 
@@ -252,17 +259,18 @@ måneder:
 
 ---
 
-## data/{år}/entries/{dato}-{zone}.md
+## data/{år}/entries/sektioner/{dato}-{zone}.md
 
 Dagbogspost som Markdown-fil med YAML-frontmatter.
 Filnavnet er blot en konvention — indholdet styres af frontmatter.
+Oprettes automatisk af `have ny-entry`.
 
 ```markdown
 ---
 dato: 2026-04-26          # (påkrævet) ISO-dato
 zone: drivhus             # (påkrævet) matcher html_navn fra bed-YAML
-plante_id: money-maker    # valgfri — plante posten handler om
-foto: 2026-04-26-drivhus.jpg   # valgfri — filnavn i fotos/entries/{år}/
+plante_id: tomater-money-maker  # valgfri — én eller liste af plante-id'er
+foto: 2026-04-26-drivhus.jpg    # valgfri — filnavn i fotos/entries/{år}/
 ---
 
 Tomaterne begynder at sætte blomster. Vandes dagligt.
@@ -270,6 +278,10 @@ Tomaterne begynder at sætte blomster. Vandes dagligt.
 
 Fotos gemmes i `fotos/entries/{år}/` og kopieres til `out/{år}/fotos/entries/` ved
 build. Thumbnails genereres automatisk.
+
+> **Mappestruktur for entries:**
+> `entries/sektioner/` — markdown-entries for bede og havezoner
+> `entries/hons/`      — YAML-entries for hønsemodulet (se Husdyr-zone)
 
 ---
 

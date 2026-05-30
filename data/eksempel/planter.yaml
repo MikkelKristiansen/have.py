@@ -8,10 +8,11 @@ meta:
 
 planter:
 
-- id: nantes
+- id: guleroedder-nantes
   navn: Gulerødder
   sort: Nantes
   latin: Daucus carota
+  familie: Skærmplanter
   farve: '#fb8c00'
   placering: Sol
   afstand: 5
@@ -21,8 +22,11 @@ planter:
   høst_fra: 7
   høst_til: 10
   noter: Tyndingssåning. Kan sås til juli.
+  pasning: Vand jævnligt i tørvejr. Tyndsåning til 5 cm afstand.
   foto:
     fil: placeholder.jpg
+    licens: placeholder
+    forfatter: '-'
 
 - id: dild
   navn: Dild
@@ -38,6 +42,8 @@ planter:
   noter: Sås hver 3. uge for løbende høst. Bolter hurtigt.
   foto:
     fil: placeholder.jpg
+    licens: placeholder
+    forfatter: '-'
 
 - id: persille
   navn: Persille
@@ -54,3 +60,5 @@ planter:
   noter: Toårig. Lang spiretid — 3-4 uger. Forspiring anbefales.
   foto:
     fil: placeholder.jpg
+    licens: placeholder
+    forfatter: '-'

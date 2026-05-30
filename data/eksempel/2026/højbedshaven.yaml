@@ -20,7 +20,7 @@ bede:
   - navn: Gulerødder
     bredde: 0.40
     afgrøder:
-    - plante_id: nantes
+    - plante_id: guleroedder-nantes
       fra: 4
       til: 10
   - navn: Dild
@@ -37,6 +37,6 @@ bede:
       til: 10
 
 kalender_planter:
-- nantes
+- guleroedder-nantes
 - dild
 - persille

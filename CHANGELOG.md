@@ -3,6 +3,25 @@
 Alle bemærkelsesværdige ændringer i dette projekt dokumenteres her.
 Format følger [Keep a Changelog](https://keepachangelog.com/da/1.0.0/).
 
+## [Unreleased]
+
+### Tilføjet
+- **Accordion-sektioner** — bede i sektionsoversigten kan foldes ud/ind via `<details>`.
+  JavaScript åbner automatisk bede med aktive afgrøder i den aktuelle måned og lukker øvrige.
+- **Accordion i havealmanak** — almanakdelen i `have.html` (indlejret pr. bed-YAML-side)
+  bruger nu `<details>`/`<summary>` med `open` på den aktuelle måned, svarende til `almanak.html`.
+  `aktuel_måned` tilføjet til `generer_html`-konteksten.
+- **"Fold alle ud/sammen"-knap** — ny knap ved Havealmanak (`have.html`) og
+  Månedsoversigt (`almanak.html`). Fælles JavaScript i `base.html` håndterer toggle og
+  opdaterer knapteksten dynamisk via `toggle`-eventet.
+- **Id-forslag i `have ny-plante`** — navn og sort spørges nu før id. Wizarden
+  foreslår automatisk et slugificeret id via `plante_id(navn, sort)`.
+- **`slugify()` og `plante_id()`** — nye hjælpefunktioner i `cli.py` til
+  konsistent slugificering (æ→ae, ø→oe, å→aa, kun a-z/0-9/bindestreg).
+- **`entries/sektioner/`-mappe** — markdown-entries for bede og havezoner flyttes
+  til `data/{år}/entries/sektioner/` (hønse-entries forbliver i `entries/hons/`).
+  `generer_html`, `generer_almanak` og `opret_entry` opdateret tilsvarende.
+
 ## [1.1.0] — 2026-05-30
 
 ### Tilføjet
