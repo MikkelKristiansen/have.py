@@ -390,7 +390,9 @@ def load_yaml(sti):
         sys.exit(1)
 
     try:
-        return yaml.safe_load(tekst)
+        # safe_load returnerer None for tomme/kommentar-kun filer; normalisér til {}
+        # så kaldere trygt kan .get(...) uden NoneType-crash.
+        return yaml.safe_load(tekst) or {}
     except yaml.YAMLError as e:
         print(f"\n❌ YAML-fejl i {sti.name}")
 
@@ -512,6 +514,8 @@ def generer_html(yaml_sti, html_sti, env, alle_planter, nav_context=None,
                                           for p in e_kopi["plante_id"] if p]
                 try:
                     måned_nr = int(str(e_kopi["dato"]).split("-")[1])
+                    if not 1 <= måned_nr <= len(almanak_måneder):
+                        raise ValueError(f"ugyldig måned {måned_nr}")
                     almanak_måneder[måned_nr - 1]["entries"].append(e_kopi)
                 except (KeyError, IndexError, ValueError):
                     pass
@@ -528,6 +532,8 @@ def generer_html(yaml_sti, html_sti, env, alle_planter, nav_context=None,
                                       for p in e_kopi.get("plante_id", []) if p]
             try:
                 måned_nr = int(str(e_kopi["dato"]).split("-")[1])
+                if not 1 <= måned_nr <= len(almanak_måneder):
+                    raise ValueError(f"ugyldig måned {måned_nr}")
                 almanak_måneder[måned_nr - 1]["entries"].append(e_kopi)
             except (KeyError, IndexError, ValueError):
                 pass
@@ -764,15 +770,29 @@ def flet_almanakker(projekter_data, entries_fil=None):
                 "indledninger": [], "begivenheder": [], "entries": []}
                for i in range(12)]
 
+    # Byg opslagsdict: html_navn -> titel
+    # Indlæs fra meta.html_navn i bed-YAML'erne — filnavnet matcher ikke nødvendigvis html_navn
+    # (fx har højbedshaven.yaml html_navn="hoejbede")
+    område_titler: dict[str, str] = {}
+    for yaml_sti in YAML_FILER_DEFAULT:
+        if os.path.exists(yaml_sti):
+            meta = load_yaml(yaml_sti).get("meta", {})
+            hn = meta.get("html_navn")
+            if hn:
+                område_titler[hn] = meta.get("titel", hn)
+
     for html_navn, alm_data in projekter_data:
         # Kilde-css-klasse baseret på html_navn
         css_kilde = f"kilde-{html_navn.replace('_','-')}"
-        titel = {"hoejbede": "Højbedshaven",
-                 "krydderurter": "Krydderurterne",
-                 "frugthaven": "Frugthaven", "drivhus": "Drivhuset"}.get(html_navn, html_navn)
+        # Brug YAML-titlen (samme kilde som entries) så kilde-labels er konsistente
+        # på tværs af indledninger, begivenheder og entries for samme område.
+        titel = område_titler.get(html_navn, html_navn)
 
         for mån in alm_data.get("måneder", []):
-            idx = mån["måned"] - 1
+            mnr = mån.get("måned")
+            if not (isinstance(mnr, int) and 1 <= mnr <= 12):
+                continue
+            idx = mnr - 1
 
             # Indledninger filtreret på dette område
             for ind in (mån.get("indledninger") or []):
@@ -791,17 +811,6 @@ def flet_almanakker(projekter_data, entries_fil=None):
             # Entries filtreret på dette område
             # Entries hentes fra entries.yaml
 
-    # Byg opslagsdict: html_navn -> titel
-    # Indlæs fra meta.html_navn i bed-YAML'erne — filnavnet matcher ikke nødvendigvis html_navn
-    # (fx har højbedshaven.yaml html_navn="hoejbede")
-    område_titler: dict[str, str] = {}
-    for yaml_sti in YAML_FILER_DEFAULT:
-        if os.path.exists(yaml_sti):
-            meta = load_yaml(yaml_sti).get("meta", {})
-            hn = meta.get("html_navn")
-            if hn:
-                område_titler[hn] = meta.get("titel", hn)
-
     # Indlæs entries fra entries.yaml og fordel på måneder og område
     if os.path.exists(_entries_fil):
         entries_data = load_yaml(_entries_fil)
@@ -813,6 +822,8 @@ def flet_almanakker(projekter_data, entries_fil=None):
                 måned_nr = int(str(e["dato"]).split("-")[1])
             except (KeyError, IndexError, ValueError):
                 continue
+            if not 1 <= måned_nr <= 12:
+                continue  # ugyldig måned i dato — undgå at placere i forkert/sidste måned
             e_kopi = dict(e)
             e_kopi["kilde"]     = område_titler.get(oid, oid)
             e_kopi["css_kilde"] = f"kilde-{oid.replace('_','-')}"
@@ -838,6 +849,8 @@ def flet_almanakker(projekter_data, entries_fil=None):
             måned_nr = int(str(e["dato"]).split("-")[1])
         except (KeyError, IndexError, ValueError):
             continue
+        if not 1 <= måned_nr <= 12:
+            continue  # ugyldig måned i dato — undgå at placere i forkert/sidste måned
         e_kopi = dict(e)
         e_kopi.setdefault("titel", "")
         e_kopi["kilde"]     = område_titler.get(oid, oid)
@@ -912,7 +925,8 @@ def generer_måned_svg(måned_data: dict) -> "dict | None":
             if i < n:
                 els.append(lbl_x(xd(i), H - 2, str(i + 1)))
         y0 = yt(0)
-        for i in range(n - 1):
+        # Brug vals' egen længde — min/middel-arrays kan have forskellig længde
+        for i in range(len(vals) - 1):
             v1, v2 = vals[i], vals[i + 1]
             if v1 is None or v2 is None:
                 continue
@@ -1534,9 +1548,9 @@ def check(yaml_filer, strict=False, farver=False):
     for p in ingen_id:
         E(f"Plante uden id: '{p.get('navn','?')}' — tilføj et unikt id-felt")
     for pid in sorted(duplikater):
-        linjer = [i+1 for i, p in enumerate(alle_planter) if p.get("id") == pid]
-        E(f"Duplikat id '{pid}' på positionerne {linjer} i {PLANTER_FIL} — "
-          f"id'er skal være unikke")
+        positioner = [i+1 for i, p in enumerate(alle_planter) if p.get("id") == pid]
+        E(f"Duplikat id '{pid}' — den {positioner}. plante i rækkefølgen i "
+          f"{PLANTER_FIL.name} (ikke fil-linjenummer). id'er skal være unikke")
     if not ingen_id and not duplikater:
         OK(f"{len(alle_planter)} planter — id'er unikke")
 
@@ -1682,9 +1696,13 @@ def check(yaml_filer, strict=False, farver=False):
                        "juli","august","september","oktober","november","december"]
         mangler_ind = []
         for m in alm.get("måneder", []):
-            mån_navn = MÅNED_NAVNE[m["måned"] - 1]
+            mnr = m.get("måned")
+            if not (isinstance(mnr, int) and 1 <= mnr <= 12):
+                W(f"Måned-blok med ugyldigt/manglende 'måned'-felt: {mnr!r}")
+                continue
+            mån_navn = MÅNED_NAVNE[mnr - 1]
             ind_ids  = {i["område_id"] for i in m.get("indledninger", [])
-                        if i.get("tekst","").strip()}
+                        if str(i.get("tekst") or "").strip()}
             for oid in kendte_html_navne:
                 if oid not in ind_ids:
                     mangler_ind.append(f"{mån_navn}/{oid}")
@@ -1751,13 +1769,12 @@ def check(yaml_filer, strict=False, farver=False):
 
 
 def _slug(tekst):
-    """Lav et filnavn-venligt slug fra dansk tekst."""
-    oversæt = {"æ": "ae", "ø": "oe", "å": "aa", " ": "-"}
-    slug = tekst.lower()
-    for fra, til in oversæt.items():
-        slug = slug.replace(fra, til)
-    slug = "".join(c for c in slug if c.isalnum() or c == "-")
-    return slug.strip("-") or "have"
+    """Lav et filnavn-venligt slug fra dansk tekst.
+
+    Delegerer til slugify (samme translitteration/normalisering) og falder
+    tilbage til "have" ved tom streng, så filnavne aldrig bliver tomme.
+    """
+    return slugify(tekst) or "have"
 
 
 def slugify(tekst: str) -> str:
@@ -1826,7 +1843,9 @@ def generer_ics(almanak_sti, ics_sti, år, yaml_filer=None):
 
     vevents = []
     for mån in alm.get("måneder", []):
-        måned_nr   = mån["måned"]
+        måned_nr = mån.get("måned")
+        if not (isinstance(måned_nr, int) and 1 <= måned_nr <= 12):
+            continue  # ugyldigt/manglende månedsnummer — spring over
         måned_navn = mån.get("navn", f"Måned {måned_nr}")
         dato_start = f"{år}{måned_nr:02d}01"
         dato_end   = (datetime.date(år, måned_nr, 1) + datetime.timedelta(days=1)).strftime("%Y%m%d")
@@ -1834,7 +1853,7 @@ def generer_ics(almanak_sti, ics_sti, år, yaml_filer=None):
         # Gruppér begivenheder pr. område (bevar rækkefølge)
         område_bev: dict = {}
         for bev in mån.get("begivenheder", []):
-            tekst = bev.get("tekst", "").strip()
+            tekst = str(bev.get("tekst") or "").strip()
             oid   = bev.get("område_id", "")
             if not tekst or not oid:
                 continue
@@ -1970,13 +1989,15 @@ def generer_rss_almanak(almanak_sti, rss_sti, år, base_url, yaml_filer=None):
 
     items = []
     for mån in alm.get("måneder", []):
-        måned_nr   = mån["måned"]
+        måned_nr = mån.get("måned")
+        if not (isinstance(måned_nr, int) and 1 <= måned_nr <= 12):
+            continue  # ugyldigt/manglende månedsnummer — spring over
         måned_navn = mån.get("navn", f"Måned {måned_nr}")
 
         # Gruppér begivenheder pr. område
         område_bev: dict = {}
         for bev in mån.get("begivenheder", []):
-            tekst = bev.get("tekst", "").strip()
+            tekst = str(bev.get("tekst") or "").strip()
             oid   = bev.get("område_id", "")
             if not tekst or not oid:
                 continue
@@ -2100,16 +2121,27 @@ kalender_planter: [tomat-eksempel, agurk-eksempel]
 }
 
 
+def _yaml_dq(værdi) -> str:
+    """Returnér en sikkert dobbelt-citeret YAML-skalar af en (bruger-)streng.
+
+    Escaper backslash og citationstegn og fjerner linjeskift, så fri brugerinput
+    (fx titler med "anførselstegn") ikke ødelægger den genererede YAML.
+    """
+    s = str(værdi).replace("\\", "\\\\").replace('"', '\\"')
+    s = s.replace("\r", "").replace("\n", " ")
+    return f'"{s}"'
+
+
 def _lav_område_yaml(om, år):
     meta = (
         f"# {om['titel']} {år}\n\n"
         f"meta:\n"
         f"  år: {år}\n"
-        f"  titel: \"{om['titel']}\"\n"
-        f"  html_navn: \"{om['html_navn']}\"\n"
-        f"  ikon: \"{om['ikon']}\"\n"
+        f"  titel: {_yaml_dq(om['titel'])}\n"
+        f"  html_navn: {_yaml_dq(om['html_navn'])}\n"
+        f"  ikon: {_yaml_dq(om['ikon'])}\n"
         f"  ikon_billede: \"\"\n"
-        f"  undertitel: \"{om['undertitel']}\"\n"
+        f"  undertitel: {_yaml_dq(om['undertitel'])}\n"
         f"  beskrivelse: \"\"\n"
         f"  tags: []\n\n"
     )
@@ -2146,7 +2178,7 @@ def _lav_almanak_yaml(have_titel, områder, år):
         "Januar", "Februar", "Marts", "April", "Maj", "Juni",
         "Juli", "August", "September", "Oktober", "November", "December",
     ]
-    tags_str = ", ".join(f'"{om["titel"]}"' for om in områder)
+    tags_str = ", ".join(_yaml_dq(om["titel"]) for om in områder)
 
     linjer = [
         f"# Havealmanak {år}",
@@ -2156,7 +2188,7 @@ def _lav_almanak_yaml(have_titel, områder, år):
         f"  år: {år}",
         '  titel: "Havealmanak"',
         '  html_navn: "almanak"',
-        f'  undertitel: "{have_titel}"',
+        f'  undertitel: {_yaml_dq(have_titel)}',
         '  beskrivelse: ""',
         '  ikon: "📖"',
         f"  tags: [{tags_str}]",
@@ -2444,7 +2476,12 @@ def nyt_område():
 
     # ── Opdatér almanak.yaml ──
     if os.path.exists(ALMANAK_FIL):
-        data = load_yaml(ALMANAK_FIL)
+        # ruamel bevarer kommentarer og formatering i den eksisterende almanak
+        from ruamel.yaml import YAML
+        ryaml = YAML()
+        ryaml.preserve_quotes = True
+        with open(ALMANAK_FIL, encoding="utf-8") as f:
+            data = ryaml.load(f) or {}
         for måned in data.get("måneder", []):
             måned.setdefault("indledninger", []).append(
                 {"område_id": html_navn, "tekst": ""}
@@ -2457,8 +2494,7 @@ def nyt_område():
         if titel not in tags:
             tags.append(titel)
         with open(ALMANAK_FIL, "w", encoding="utf-8") as f:
-            yaml.dump(data, f, allow_unicode=True, default_flow_style=False,
-                      sort_keys=False, indent=2)
+            ryaml.dump(data, f)
         print(f"✅ Opdateret: {ALMANAK_FIL}")
     else:
         print(f"ℹ️  {ALMANAK_FIL} ikke fundet — spring almanak over.")
@@ -2472,7 +2508,18 @@ def nyt_område():
 def nyt_år(nyt_år_num: int):
     """Klargør data/<nyt_år>/ og fotos/entries/<nyt_år>/ til den kommende sæson."""
     import shutil
-    fra_mappe = DATA_MAPPE.parent / str(nyt_år_num - 1)   # data/{nyt_år_num - 1}
+    data_rod = DATA_MAPPE.parent
+    # Find seneste eksisterende år-mappe før det nye år — ikke nødvendigvis år−1,
+    # så et oversprunget år (fx 2024 → nyt-år 2026) stadig finder 2024 som kilde.
+    tidligere_år = sorted(
+        (int(p.name) for p in data_rod.iterdir()
+         if p.is_dir() and p.name.isdigit() and int(p.name) < nyt_år_num),
+        reverse=True,
+    )
+    if not tidligere_år:
+        print(f"❌ Ingen tidligere år-mappe fundet i {data_rod}/ at kopiere fra.")
+        sys.exit(1)
+    fra_mappe = data_rod / str(tidligere_år[0])
     til_mappe = f"data/{nyt_år_num}"
 
     import questionary
@@ -2491,6 +2538,11 @@ def nyt_år(nyt_år_num: int):
 
     os.makedirs(til_mappe)
 
+    # ruamel bevarer kommentarer og formatering når vi opdaterer meta i kopierne
+    from ruamel.yaml import YAML
+    ryaml = YAML()
+    ryaml.preserve_quotes = True
+
     SPRING_OVER = {"entries.yaml"}
     kopierede = []
     for fil in sorted(os.listdir(fra_mappe)):
@@ -2499,15 +2551,15 @@ def nyt_år(nyt_år_num: int):
         kilde = os.path.join(fra_mappe, fil)
         mål   = os.path.join(til_mappe, fil)
         shutil.copy(kilde, mål)
-        # Opdatér meta.år og backfill manglende meta-felter i kopien
-        data = load_yaml(mål)
+        # Opdatér meta.år og backfill manglende meta-felter i kopien (in-place round-trip)
+        with open(mål, encoding="utf-8") as f:
+            data = ryaml.load(f)
         if isinstance(data, dict) and "meta" in data:
             data["meta"]["år"] = nyt_år_num
             for felt, standard in _META_FELTER_DEFAULT.items():
                 data["meta"].setdefault(felt, standard)
             with open(mål, "w", encoding="utf-8") as f:
-                yaml.dump(data, f, allow_unicode=True, default_flow_style=False,
-                          sort_keys=False, indent=2)
+                ryaml.dump(data, f)
         kopierede.append(fil)
         print(f"  📄 {fil} kopieret og opdateret til år {nyt_år_num}")
 
@@ -2654,27 +2706,21 @@ def _opdater_ftp_config(host, bruger, kode, mappe, arbejdsmappe: str = "."):
     _opdater_haven_yaml(_opdater, arbejdsmappe)
 
 
-def upload_ftp(_filer):
-    """Upload hele out/-mappen til FTP-server via lftp mirror (kun ændrede filer)."""
-    if not FTP_KODE:
-        print("❌ HAVE_FTP_KODE er ikke sat — kør: export HAVE_FTP_KODE=ditpassword")
-        sys.exit(1)
+def _lftp_q(værdi) -> str:
+    """Dobbelt-citér en streng til brug i en lftp-kommando (escaper \\ og ")."""
+    s = str(værdi).replace("\\", "\\\\").replace('"', '\\"')
+    return f'"{s}"'
 
-    out_rod = OUT_MAPPE.parent
-    print(f"  ↑ {out_rod}/ → {FTP_BRUGER}@{FTP_HOST}:{FTP_MAPPE}/")
+
+def _kør_lftp(script: str) -> None:
+    """Kør et lftp-kommandoscript via stdin.
+
+    Credentials sendes via stdin (user-kommandoen), IKKE som argv — så
+    adgangskoden ikke kan aflæses i procestabellen (ps/proc) under upload.
+    """
     try:
         result = subprocess.run(
-            [
-                "lftp",
-                "-u", f"{FTP_BRUGER},{FTP_KODE}",
-                f"ftp://{FTP_HOST}",
-                "-e", (
-                    f"mirror -R --delete --verbose {out_rod}/ {FTP_MAPPE}/;"
-                    " bye"
-                ),
-            ],
-            text=True,
-            capture_output=True,
+            ["lftp"], input=script, text=True, capture_output=True,
         )
     except FileNotFoundError:
         print("❌ lftp er ikke installeret — kør: sudo pacman -S lftp")
@@ -2688,6 +2734,29 @@ def upload_ftp(_filer):
             print(result.stderr, end="", file=sys.stderr)
         sys.exit(1)
     print("✅ Alle filer uploadet via lftp.")
+
+
+def upload_ftp(_filer):
+    """Upload hele out/-mappen til FTP-server via lftp mirror (kun ændrede filer)."""
+    if not FTP_KODE:
+        print("❌ HAVE_FTP_KODE er ikke sat — kør: export HAVE_FTP_KODE=ditpassword")
+        sys.exit(1)
+    if not FTP_MAPPE or FTP_MAPPE.strip("/ ") == "":
+        print("❌ deploy.ftp.mappe er ikke sat (eller er '/') — afbryder.\n"
+              "   'mirror --delete' ville ellers spejle mod serverens rod og kunne\n"
+              "   slette alt der ikke findes lokalt. Sæt en undermappe i haven.yaml.")
+        sys.exit(1)
+
+    out_rod = OUT_MAPPE.parent
+    print(f"  ↑ {out_rod}/ → {FTP_BRUGER}@{FTP_HOST}:{FTP_MAPPE}/")
+    script = "\n".join([
+        f"open {_lftp_q(f'ftp://{FTP_HOST}')}",
+        f"user {_lftp_q(FTP_BRUGER)} {_lftp_q(FTP_KODE)}",
+        f"mirror -R --delete --verbose {_lftp_q(f'{out_rod}/')} {_lftp_q(f'{FTP_MAPPE}/')}",
+        "bye",
+        "",
+    ])
+    _kør_lftp(script)
 
 
 def upload(filer):
@@ -2695,36 +2764,23 @@ def upload(filer):
     if not SFTP_KODE:
         print("❌ HAVE_SFTP_KODE er ikke sat — kør: export HAVE_SFTP_KODE=ditpassword")
         sys.exit(1)
+    if not SFTP_MAPPE or SFTP_MAPPE.strip("/ ") == "":
+        print("❌ deploy.sftp.mappe er ikke sat (eller er '/') — afbryder.\n"
+              "   'mirror --delete' ville ellers spejle mod serverens rod og kunne\n"
+              "   slette alt der ikke findes lokalt. Sæt en undermappe i haven.yaml.")
+        sys.exit(1)
 
     out_rod = OUT_MAPPE.parent
     print(f"  ↑ {out_rod}/ → {SFTP_BRUGER}@{SFTP_HOST}:{SFTP_MAPPE}/")
-    try:
-        result = subprocess.run(
-            [
-                "lftp",
-                "-u", f"{SFTP_BRUGER},{SFTP_KODE}",
-                f"sftp://{SFTP_HOST}",
-                "-e", (
-                    "set sftp:connect-program 'ssh -o IdentityAgent=none';"
-                    f" mirror -R --delete --verbose {out_rod}/ {SFTP_MAPPE}/;"
-                    " bye"
-                ),
-            ],
-            text=True,
-            capture_output=True,
-        )
-    except FileNotFoundError:
-        print("❌ lftp er ikke installeret — kør: sudo pacman -S lftp")
-        sys.exit(1)
-
-    if result.stdout:
-        print(result.stdout, end="")
-    if result.returncode != 0:
-        print(f"❌ lftp-fejl (exit {result.returncode}):")
-        if result.stderr:
-            print(result.stderr, end="", file=sys.stderr)
-        sys.exit(1)
-    print("✅ Alle filer uploadet via lftp.")
+    script = "\n".join([
+        "set sftp:connect-program \"ssh -o IdentityAgent=none\"",
+        f"open {_lftp_q(f'sftp://{SFTP_HOST}')}",
+        f"user {_lftp_q(SFTP_BRUGER)} {_lftp_q(SFTP_KODE)}",
+        f"mirror -R --delete --verbose {_lftp_q(f'{out_rod}/')} {_lftp_q(f'{SFTP_MAPPE}/')}",
+        "bye",
+        "",
+    ])
+    _kør_lftp(script)
 
 
 # ── Projektinfo til forsiden ───────────────────────────────────────────────────
@@ -4105,7 +4161,7 @@ def generer_søg_json(out_rod: Path, data_rod: Path, plante_db: dict) -> Path:
                 "dato":      dato_str,
                 "bed":       zone,
                 "bed_titel": bed_titel,
-                "plante_id": plante_ids if len(plante_ids) != 1 else plante_ids[0],
+                "plante_id": plante_ids,   # altid liste — konsistent felttype i søgeindekset
                 "navn":      navn,
                 "tekst":     tekst,
                 "link":      f"{år}/almanak.html#{fil_stem}",
@@ -5809,37 +5865,51 @@ def hent_vejr(år: int, force: bool = False):
         sys.exit(1)
 
     print(f"📡 Henter vejrdata for {sted_navn} ({start_dato} → {slut_dato})…")
-    resp = requests.get(
-        "https://archive-api.open-meteo.com/v1/archive",
-        params={
-            "latitude":   breddegrad,
-            "longitude":  længdegrad,
-            "start_date": start_dato.isoformat(),
-            "end_date":   slut_dato.isoformat(),
-            "daily":      "temperature_2m_max,temperature_2m_min,temperature_2m_mean,precipitation_sum",
-            "timezone":   "Europe/Copenhagen",
-        },
-        timeout=30,
-    )
+    try:
+        resp = requests.get(
+            "https://archive-api.open-meteo.com/v1/archive",
+            params={
+                "latitude":   breddegrad,
+                "longitude":  længdegrad,
+                "start_date": start_dato.isoformat(),
+                "end_date":   slut_dato.isoformat(),
+                "daily":      "temperature_2m_max,temperature_2m_min,temperature_2m_mean,precipitation_sum",
+                "timezone":   "Europe/Copenhagen",
+            },
+            timeout=30,
+        )
+    except requests.RequestException as e:
+        print(f"❌ Netværksfejl ved kald til Open-Meteo: {e}")
+        sys.exit(1)
     if not resp.ok:
         print(f"❌ API-fejl {resp.status_code}: {resp.text[:200]}")
         sys.exit(1)
 
     daily      = resp.json().get("daily", {})
-    datoer     = daily.get("time", [])
-    t_max      = daily.get("temperature_2m_max", [])
-    t_min      = daily.get("temperature_2m_min", [])
-    t_mean     = daily.get("temperature_2m_mean", [])
-    nedbør_raw = daily.get("precipitation_sum", [])
+    datoer     = daily.get("time") or []
+    t_max      = daily.get("temperature_2m_max") or []
+    t_min      = daily.get("temperature_2m_min") or []
+    t_mean     = daily.get("temperature_2m_mean") or []
+    nedbør_raw = daily.get("precipitation_sum") or []
+
+    if not datoer:
+        print("❌ Open-Meteo returnerede ingen daglige data for perioden.")
+        sys.exit(1)
+
+    # Sikker indeksering: et enkelt manglende/kortere felt i API-svaret må ikke
+    # give IndexError — manglende værdier behandles som None.
+    def _v(arr, i):
+        return arr[i] if i < len(arr) else None
 
     måneds_rå: dict[str, dict] = {}
     for i, dato_str in enumerate(datoer):
         måned_navn = MÅNEDER_LANG[datetime.date.fromisoformat(dato_str).month - 1]
         d = måneds_rå.setdefault(måned_navn, {"mean": [], "min": [], "max": [], "ned": []})
-        d["mean"].append(t_mean[i])
-        d["min"].append(t_min[i])
-        d["max"].append(t_max[i])
-        d["ned"].append(nedbør_raw[i] if nedbør_raw[i] is not None else 0.0)
+        d["mean"].append(_v(t_mean, i))
+        d["min"].append(_v(t_min, i))
+        d["max"].append(_v(t_max, i))
+        nv = _v(nedbør_raw, i)
+        d["ned"].append(nv if nv is not None else 0.0)
 
     ryaml = YAML()
     ryaml.preserve_quotes  = True
@@ -5873,6 +5943,7 @@ def hent_vejr(år: int, force: bool = False):
         daglige_cm = CommentedMap()
         daglige_cm["middel"] = _flow_seq(d["mean"])
         daglige_cm["min"]    = _flow_seq(d["min"])
+        daglige_cm["max"]    = _flow_seq(d["max"])
         daglige_cm["nedbør"] = _flow_seq(d["ned"])
 
         if existing is not None and not force:
