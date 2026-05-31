@@ -36,7 +36,8 @@ kontakt_email: ""         # valgfri — sendes med i User-Agent ved Wikimedia-do
 hero_billede: fotos/min-have.jpg   # valgfri — baggrundsbillede på forsiden
 
 deploy:
-  protokol: sftp          # "sftp", "ftp" eller "ingen"
+  protokol: [ftp, sftp]   # "sftp", "ftp", "ingen" — eller en liste for flere mål
+                          # (uploader i nævnt rækkefølge; overstyr med: have deploy --protokol sftp)
   sftp:
     host: eksempel.dk
     bruger: mit_brugernavn
@@ -174,14 +175,21 @@ meta:
 ### data/dyr.yaml
 
 Globalt dyreregister, delt på tværs af år (samme niveau som `planter.yaml`).
-Indlæses til `DYR_DB`. Tilføj høner med `have hons ny-høne`.
+Indlæses til `DYR_DB`. Tilføj høner med `have hons ny-høne`. Registret vises
+som sin egen side `hoenseregisteret.html` (link i topnavigationen ved siden af
+Planter) — samme mønster som planteregistret.
 
 ```yaml
 - id: australorp-sort-1   # (påkrævet) slug, bruges som reference i entries
+  navn: Berta             # valgfri — vises som overskrift på hønsekortet
   race: Australorp        # (påkrævet) fritekst
   farve: sort             # fritekst — skelner individer af samme race
-  fødselsdato: 2023-04-12  # valgfri, ISO-dato
+  fødselsdato: 2023-04-12  # valgfri, ISO-dato (vises som "kom til verden" + alder)
   aktiv: true             # default true; sættes false ved dødsfald
+  noter: "Flokkens leder"  # valgfri fritekst
+  foto:                   # valgfri — billedfil i fotos/dyr/ (thumbs autogenereres)
+    fil: berta.jpg        #   ekstern URL (http…) bruges direkte
+    forfatter: Mikkel
 ```
 
 ### data/{år}/entries/hons/

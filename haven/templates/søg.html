@@ -115,23 +115,30 @@ mark { background: #d4edda; padding: 0 .15em; border-radius: 2px; }
     liste.innerHTML = res.map(({ item }) => {
       const erBedeplan = item.type === 'bedeplan';
       const erPlante   = item.type === 'plante';
+      const erHøne     = item.type === 'høne';
       const navn  = item.navn      ? highlight(item.navn, q)      : '';
       const bed   = item.bed_titel ? highlight(item.bed_titel, q) : (item.bed || '');
       const tekst = item.tekst     ? highlight(item.tekst.slice(0, 220), q) : '';
       const overskrift = navn || bed;
       const badge = erBedeplan ? '<span class="søg-badge">bedeplan</span>'
                   : erPlante   ? '<span class="søg-badge" style="background:#e3f2fd;color:#1565c0">plante</span>'
+                  : erHøne     ? '<span class="søg-badge" style="background:#fff3e0;color:#e65100">høne</span>'
                   : '';
       const meta = erPlante
         ? [item.latin ? '<em>' + highlight(item.latin, q) + '</em>' : '', item.familie ? highlight(item.familie, q) : ''].filter(Boolean).join(' · ')
+        : erHøne
+          ? [item.race, item.farve].filter(Boolean).map(x => highlight(x, q)).join(' · ')
         : erBedeplan
           ? item.år + ' · ' + bed
           : item.år + ' · ' + bed + ' · ' + datoLabel(item.dato);
+      const høneNoter = erHøne && item.noter ? highlight(item.noter.slice(0, 220), q) : '';
       return '<div class="søg-resultat">'
         + '<a href="' + item.link + '">'
         + '<div class="søg-navn">' + overskrift + badge + '</div>'
         + (meta ? '<div class="søg-meta">' + meta + '</div>' : '')
-        + (tekst && !erPlante ? '<div class="søg-tekst">' + (erBedeplan ? '📍 ' : '"') + tekst + (erBedeplan ? '' : '"') + '</div>' : '')
+        + (erHøne
+            ? (høneNoter ? '<div class="søg-tekst">' + høneNoter + '</div>' : '')
+            : (tekst && !erPlante ? '<div class="søg-tekst">' + (erBedeplan ? '📍 ' : '"') + tekst + (erBedeplan ? '' : '"') + '</div>' : ''))
         + '</a></div>';
     }).join('');
   }

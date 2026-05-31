@@ -27,7 +27,7 @@ from .config import (
     load_config, data_mappe, out_mappe, sti,
     sftp_adgangskode, ftp_adgangskode, PROJECT_ROOT,
 )
-from .models import Plante, FotoModel
+from .models import Plante, FotoModel, Høne
 from .wikidata import (wikidata_søg, wikidata_hent_plantedata,
                        wikidata_hent_foto_url, wikidata_hent_foto_metadata)
 
@@ -47,8 +47,31 @@ YAML_FILER_DEFAULT = [
 
 BASE_URL = _config["site"]["basis_url"]
 
+GYLDIGE_PROTOKOLLER = ("ftp", "sftp")
+
+
+def normaliser_protokoller(rå) -> list:
+    """Normalisér deploy.protokol (streng eller liste) til en ordnet liste af
+    gyldige protokoller. 'ingen'/tom → []. Dubletter og ukendte værdier filtreres."""
+    if rå is None:
+        return []
+    værdier = [rå] if isinstance(rå, str) else list(rå)
+    ud: list = []
+    for v in værdier:
+        v = str(v).strip().lower()
+        if v in ("", "ingen"):
+            continue
+        if v in GYLDIGE_PROTOKOLLER:
+            if v not in ud:
+                ud.append(v)
+        else:
+            print(f"[ADVARSEL] Ukendt deploy-protokol: {v!r} — ignoreres "
+                  f"(gyldige: {', '.join(GYLDIGE_PROTOKOLLER)})", file=sys.stderr)
+    return ud
+
+
 _deploy = _config.get("deploy", {})
-DEPLOY_PROTOKOL = _deploy.get("protokol", "ingen")
+DEPLOY_PROTOKOLLER = normaliser_protokoller(_deploy.get("protokol", "ingen"))
 
 _sftp = _deploy.get("sftp", {})
 SFTP_HOST   = _sftp.get("host", "")
@@ -122,7 +145,10 @@ DYR_DB: dict = {}  # Populeres i generer_alle via DYR_DB.update(byg_dyr_db())
 
 
 def _dyr_label(d: dict) -> str:
-    """Vis et dyr som 'race farve' (til lister og overskrifter)."""
+    """Vis et dyr som 'navn' eller 'race farve' (til lister og overskrifter)."""
+    navn = str(d.get("navn", "")).strip()
+    if navn:
+        return navn
     dele = [str(d.get("race", "")).strip(), str(d.get("farve", "")).strip()]
     return " ".join(p for p in dele if p) or d.get("id", "?")
 
@@ -156,6 +182,19 @@ def valider_planter(db: dict) -> None:
             for felt in e.errors():
                 loc = ".".join(str(x) for x in felt["loc"])
                 fejl.append((PLANTER_FIL.name, f"{pid}.{loc}: {felt['msg']}"))
+    _print_fejl_og_afslut(fejl)
+
+
+def valider_hoenser(db: dict) -> None:
+    """L2: Kontrollér at hvert høne-objekt har den form hoenseregisteret.html forventer."""
+    fejl = []
+    for hid, data in db.items():
+        try:
+            Høne(**data)
+        except ValidationError as e:
+            for felt in e.errors():
+                loc = ".".join(str(x) for x in felt["loc"])
+                fejl.append((DYR_FIL.name, f"{hid}.{loc}: {felt['msg']}"))
     _print_fejl_og_afslut(fejl)
 
 
@@ -1134,6 +1173,39 @@ def generer_planter_oversigt(alle_planter, yaml_filer, planter_sti, env, nav_con
         print(f"✅ Planterside genereret: {planter_sti}")
     else:
         print(f"ℹ️  Planterside uændret: {planter_sti}")
+
+
+def generer_hoenseregisteret_oversigt(alle_hoener, hoense_sti, env, nav_context=None):
+    """Generer hoenseregisteret.html — hønseflokken fra dyr.yaml, aktive først.
+
+    Samme mønster som generer_planter_oversigt: ét register delt på tværs af år.
+    """
+    i_år = datetime.date.today().year
+
+    def berig(h):
+        h = dict(h)
+        fd = str(h.get("fødselsdato", "") or "")
+        h["alder"] = (i_år - int(fd[:4])) if len(fd) >= 4 and fd[:4].isdigit() else None
+        return h
+
+    def sorter(liste):
+        liste.sort(key=lambda h: (h.get("navn") or h.get("race") or "",
+                                  str(h.get("fødselsdato", ""))))
+        return liste
+
+    aktive  = sorter([berig(h) for h in alle_hoener if h.get("aktiv", True)])
+    udgåede = sorter([berig(h) for h in alle_hoener if not h.get("aktiv", True)])
+
+    skabelon = env.get_template("hoenseregisteret.html")
+    output = skabelon.render(
+        år=i_år, aktive=aktive, udgåede=udgåede,
+        antal_aktive=len(aktive), antal=len(alle_hoener),
+        **(nav_context or {}),
+    )
+    if skriv_hvis_ændret(hoense_sti, output):
+        print(f"✅ Hønseregister genereret: {hoense_sti}")
+    else:
+        print(f"ℹ️  Hønseregister uændret: {hoense_sti}")
 
 
 def generer_samlet_arkiv(år_liste, arkiv_samlet_sti, env, plante_db=None, nav_context=None):
@@ -2620,20 +2692,24 @@ def _regenerer_gl_år_sider(gl_år: int, år_liste: list, aktivt_år: int,
     ])
 
     gl_bede_nav = []
+    gl_dyr_nav  = []
     for gl_yaml in gl_yaml_filer:
         _meta = load_yaml(gl_yaml).get("meta", {})
         _hn = _meta.get("html_navn")
-        if _hn:
-            gl_bede_nav.append({
-                "ikon":      _meta.get("ikon", "🌿"),
-                "titel":     _meta.get("titel", _hn),
-                "html_navn": _hn,
-            })
+        if not _hn:
+            continue
+        _post = {
+            "ikon":      _meta.get("ikon", "🌿"),
+            "titel":     _meta.get("titel", _hn),
+            "html_navn": _hn,
+        }
+        (gl_dyr_nav if _meta.get("type") == "husdyr" else gl_bede_nav).append(_post)
 
     def gl_nav(aktiv_side=""):
-        return {"nav_bede": gl_bede_nav, "have_navn": have_navn,
+        return {"nav_bede": gl_bede_nav, "nav_dyr": gl_dyr_nav, "have_navn": have_navn,
                 "aktiv_side": aktiv_side, "features": features,
-                "år_liste": år_liste, "aktivt_år": aktivt_år}
+                "år_liste": år_liste, "aktivt_år": aktivt_år,
+                "har_høns": bool(DYR_DB)}
 
     for gl_yaml in gl_yaml_filer:
         gl_meta = load_yaml(gl_yaml).get("meta", {})
@@ -2931,18 +3007,21 @@ def generer_alle(yaml_filer=None) -> list:
         have_navn = alm_meta.get("undertitel", "")
     have_navn = have_navn or "Haven"
 
-    nav_bede = []
+    nav_bede = []   # plantezoner → "Sektioner"
+    nav_dyr  = []   # husdyr-zoner → "Dyr"
     for _ys in yaml_filer:
         if not os.path.isfile(_ys):
             continue
         _meta = load_yaml(_ys).get("meta", {})
         _hn   = _meta.get("html_navn")
-        if _hn:
-            nav_bede.append({
-                "ikon":     _meta.get("ikon", "🌿"),
-                "titel":    _meta.get("titel", _hn),
-                "html_navn": _hn,
-            })
+        if not _hn:
+            continue
+        _post = {
+            "ikon":     _meta.get("ikon", "🌿"),
+            "titel":    _meta.get("titel", _hn),
+            "html_navn": _hn,
+        }
+        (nav_dyr if _meta.get("type") == "husdyr" else nav_bede).append(_post)
 
     _data_basis = str(PROJECT_ROOT / "data")
     år_liste = sorted([
@@ -2951,9 +3030,11 @@ def generer_alle(yaml_filer=None) -> list:
     ]) if os.path.isdir(_data_basis) else [AKTIVT_ÅR]
 
     def nav_ctx(aktiv_side="", op_sti="../", jaar_sti=""):
-        return {"nav_bede": nav_bede, "have_navn": have_navn, "aktiv_side": aktiv_side,
+        return {"nav_bede": nav_bede, "nav_dyr": nav_dyr, "have_navn": have_navn,
+                "aktiv_side": aktiv_side,
                 "features": _config.get("features", {}), "år_liste": år_liste,
-                "aktivt_år": AKTIVT_ÅR, "op_sti": op_sti, "jaar_sti": jaar_sti}
+                "aktivt_år": AKTIVT_ÅR, "op_sti": op_sti, "jaar_sti": jaar_sti,
+                "har_høns": bool(DYR_DB)}
     # ─────────────────────────────────────────────────────────────────────────
 
     for yaml_sti in yaml_filer:
@@ -3000,6 +3081,20 @@ def generer_alle(yaml_filer=None) -> list:
     planter_sti = os.path.join(str(OUT_MAPPE.parent), "planter.html")
     generer_planter_oversigt(alle_planter, yaml_filer, planter_sti, env, nav_context=nav_ctx("planter", op_sti="", jaar_sti=f"{AKTIVT_ÅR}/"))
     upload_filer.append((planter_sti, "planter.html"))
+
+    # Hønseregister — delt på tværs af år (samme rod-niveau som planter.html)
+    if DYR_DB:
+        valider_hoenser(DYR_DB)
+        hoense_sti = os.path.join(str(OUT_MAPPE.parent), "hoenseregisteret.html")
+        generer_hoenseregisteret_oversigt(list(DYR_DB.values()), hoense_sti, env,
+                                          nav_context=nav_ctx("hoenseregisteret", op_sti="", jaar_sti=f"{AKTIVT_ÅR}/"))
+        upload_filer.append((hoense_sti, "hoenseregisteret.html"))
+        # Ryd forældede årskopier (registret bor i roden, ikke pr. år)
+        for _gl_år in år_liste:
+            _stale = OUT_MAPPE.parent / str(_gl_år) / "hoenseregisteret.html"
+            if _stale.exists():
+                _stale.unlink()
+                print(f"🗑  Fjernet forældet: {_stale}")
 
     arkiv_samlet_sti = OUT_MAPPE.parent / "arkiv-samlet.html"
     generer_samlet_arkiv(år_liste, arkiv_samlet_sti, env, plante_db=PLANTE_DB,
@@ -3098,6 +3193,23 @@ def generer_alle(yaml_filer=None) -> list:
                 if _stale_planter.exists():
                     shutil.rmtree(_stale_planter)
                     print(f"🗑  Fjernet forældet: {_stale_planter}")
+
+        # Hønsefotos er tidløse — kopieres til out/fotos/dyr/ (rod-niveau)
+        dyr_kilde = fotos_basis / "dyr"
+        if dyr_kilde.exists():
+            dyr_dest = OUT_MAPPE.parent / "fotos" / "dyr"
+            _generer_manglende_thumbnails(dyr_kilde)
+            n = _sync_mappe(dyr_kilde, dyr_dest)
+            _generer_manglende_thumbnails(dyr_dest)
+            if n > 0:
+                print(f"✅ Hønsefotos synkroniseret: {n} filer → {dyr_dest}")
+            else:
+                print(f"ℹ️  Hønsefotos uændrede: {dyr_dest}")
+            for _gl_år in år_liste:
+                _stale_dyr = OUT_MAPPE.parent / str(_gl_år) / "fotos" / "dyr"
+                if _stale_dyr.exists():
+                    shutil.rmtree(_stale_dyr)
+                    print(f"🗑  Fjernet forældet: {_stale_dyr}")
 
         # Entryfotos er årstalsbestemte — kopieres til out/{år}/fotos/entries/
         fotos_dest = OUT_MAPPE / "fotos"
@@ -4240,11 +4352,30 @@ def generer_søg_json(out_rod: Path, data_rod: Path, plante_db: dict) -> Path:
         })
     planter_del.sort(key=lambda e: e["navn"].lower())
 
+    # ── Høns fra dyr.yaml ────────────────────────────────────────────────────
+    høns_del = []
+    for hid, h in sorted(DYR_DB.items()):
+        race  = str(h.get("race", "") or "")
+        farve = str(h.get("farve", "") or "")
+        noter = str(h.get("noter", "") or "")
+        navn  = h.get("navn") or race or hid
+        høns_del.append({
+            "type":   "høne",
+            "navn":   navn,
+            "race":   race,
+            "farve":  farve,
+            "noter":  noter,
+            # tekst gør race/farve/noter søgbare via Fuse (vises ikke direkte)
+            "tekst":  " · ".join(filter(None, [race, farve, noter])),
+            "link":   f"hoenseregisteret.html#høne-{hid}",
+        })
+    høns_del.sort(key=lambda e: e["navn"].lower())
+
     entries_del  = [e for e in søg_data if e["type"] == "entry"]
     bedeplaner_del = [e for e in søg_data if e["type"] == "bedeplan"]
     entries_del.sort(key=lambda e: e["dato"], reverse=True)
     bedeplaner_del.sort(key=lambda e: (-e["år"], e["bed"], e.get("navn", "")))
-    søg_data = entries_del + bedeplaner_del + planter_del
+    søg_data = entries_del + bedeplaner_del + planter_del + høns_del
     ud_sti = out_rod / "søg.json"
     ny = json.dumps(søg_data, ensure_ascii=False, separators=(",", ":"))
     if skriv_hvis_ændret(ud_sti, ny):
@@ -4541,6 +4672,11 @@ def hons_ny_høne():
     ry.default_flow_style = False
     ry.width = 120
 
+    navn = questionary.text("Navn (kan være tom):").ask()
+    if navn is None:
+        sys.exit(0)
+    navn = navn.strip()
+
     race = questionary.text("Race:").ask()
     if not race or not race.strip():
         sys.exit(0)
@@ -4560,6 +4696,11 @@ def hons_ny_høne():
         sys.exit(0)
     fødsel = fødsel.strip()
 
+    noter = questionary.text("Noter (kan være tom):").ask()
+    if noter is None:
+        sys.exit(0)
+    noter = noter.strip()
+
     # Generér løbenummereret id: slug(race-farve)-N
     db = byg_dyr_db()
     basis = _slug(f"{race}-{farve}") if farve else _slug(race)
@@ -4571,12 +4712,16 @@ def hons_ny_høne():
 
     ny = CommentedMap()
     ny["id"] = nyt_id
+    if navn:
+        ny["navn"] = navn
     ny["race"] = race
     if farve:
         ny["farve"] = farve
     if fødsel:
         ny["fødselsdato"] = fødsel
     ny["aktiv"] = True
+    if noter:
+        ny["noter"] = noter
 
     import io
     buf = io.StringIO()
@@ -6050,7 +6195,12 @@ def main():
     subparsers.add_parser("build", help="Generer alle HTML-sider (alias for: have uden argumenter)")
 
     # Subkommando: deploy
-    subparsers.add_parser("deploy", help="Generer alle sider og upload til server (protokol sat i haven.yaml)")
+    _p_deploy = subparsers.add_parser("deploy", help="Generer alle sider og upload til server (protokol sat i haven.yaml)")
+    _p_deploy.add_argument(
+        "--protokol", nargs="+", choices=["ftp", "sftp", "ingen"], metavar="PROTOKOL",
+        help="Overstyr deploy.protokol for denne kørsel — ét eller flere mål, fx: "
+             "--protokol ftp sftp (uploader i nævnt rækkefølge)",
+    )
 
     # Subkommando: hent-vejr
     hent_vejr_parser = subparsers.add_parser("hent-vejr", help="Hent historisk vejrdata fra Open-Meteo og skriv til almanak.yaml")
@@ -6140,13 +6290,34 @@ def main():
         sys.exit(0)
 
     if args.kommando == "deploy":
-        upload_filer = generer_alle(_find_yaml_filer())
-        if DEPLOY_PROTOKOL == "ftp":
-            upload_ftp(upload_filer)
-        elif DEPLOY_PROTOKOL == "sftp":
-            upload(upload_filer)
-        else:
-            print("ℹ️  Upload sprunget over — sæt deploy.protokol til 'sftp' eller 'ftp' i haven.yaml")
+        # --protokol overstyrer haven.yaml for denne kørsel; ellers bruges konfig.
+        protokoller = (normaliser_protokoller(args.protokol)
+                       if args.protokol else DEPLOY_PROTOKOLLER)
+        if not protokoller:
+            print("ℹ️  Upload sprunget over — sæt deploy.protokol til fx 'sftp', 'ftp' "
+                  "eller [ftp, sftp] i haven.yaml (eller brug --protokol)")
+            sys.exit(0)
+
+        upload_filer = generer_alle(_find_yaml_filer())  # byg én gang, upload til alle mål
+        upload_funktioner = {"ftp": upload_ftp, "sftp": upload}
+        fejlede = []
+        for i, p in enumerate(protokoller):
+            if len(protokoller) > 1:
+                print(f"\n── Deploy {i+1}/{len(protokoller)}: {p} ──────────────────────────")
+            try:
+                upload_funktioner[p](upload_filer)
+            except SystemExit as e:
+                # Upload-funktionerne afslutter med sys.exit(1) ved fejl; fang det så
+                # et nedbrud på ét mål ikke afbryder de øvrige.
+                if e.code not in (0, None):
+                    fejlede.append(p)
+                    rest = " — fortsætter med resten" if i < len(protokoller) - 1 else ""
+                    print(f"⚠️  Deploy til {p} fejlede{rest}.", file=sys.stderr)
+        if fejlede:
+            print(f"\n❌ Deploy fejlede for: {', '.join(fejlede)}")
+            sys.exit(1)
+        if len(protokoller) > 1:
+            print(f"\n✅ Deploy færdig til alle mål: {', '.join(protokoller)}")
         sys.exit(0)
 
     if args.kommando == "watch":

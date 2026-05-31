@@ -14,6 +14,7 @@
 
 {% block topnav %}
 {% set bede_ids = (nav_bede | default([])) | map(attribute='html_navn') | list %}
+{% set dyr_ids = (nav_dyr | default([])) | map(attribute='html_navn') | list %}
 <header class="site-header">
   <div class="site-header-inner">
     <a href="{{ jaar_sti | default('') }}index.html" class="site-logo">
@@ -22,6 +23,8 @@
     <button class="hamburger" id="hamburger" aria-label="Åbn menu">☰</button>
     <nav class="hoved-nav" id="hoved-nav">
       <a href="{{ jaar_sti | default('') }}index.html" class="nav-link{% if aktiv_side | default('') == 'hjem' %} aktiv{% endif %}">Hjem</a>
+      <a href="{{ op_sti | default('../') }}planter.html" class="nav-link{% if aktiv_side | default('') == 'planter' %} aktiv{% endif %}">Planter</a>
+      {% if nav_bede | default([]) %}
       <div class="nav-dropdown" id="bede-dropdown">
         <span class="nav-link nav-dropdown-toggle{% if aktiv_side | default('') in bede_ids %} aktiv{% endif %}">
           Sektioner <span class="dropdown-pil">▾</span>
@@ -32,8 +35,23 @@
           {% endfor %}
         </div>
       </div>
+      {% endif %}
+      {% if (nav_dyr | default([])) or (har_høns | default(false)) %}
+      <div class="nav-dropdown" id="dyr-dropdown">
+        <span class="nav-link nav-dropdown-toggle{% if aktiv_side | default('') in dyr_ids or aktiv_side | default('') == 'hoenseregisteret' %} aktiv{% endif %}">
+          Dyr <span class="dropdown-pil">▾</span>
+        </span>
+        <div class="nav-dropdown-menu">
+          {% if har_høns | default(false) %}
+          <a href="{{ op_sti | default('../') }}hoenseregisteret.html" class="dropdown-item{% if aktiv_side | default('') == 'hoenseregisteret' %} aktiv{% endif %}">🐔 Hønseregister</a>
+          {% endif %}
+          {% for d in nav_dyr | default([]) %}
+          <a href="{{ jaar_sti | default('') }}{{ d.html_navn }}.html" class="dropdown-item">{{ d.ikon }} {{ d.titel }}</a>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
       <a href="{{ jaar_sti | default('') }}almanak.html" class="nav-link{% if aktiv_side | default('') == 'almanak' %} aktiv{% endif %}">Almanak</a>
-      <a href="{{ op_sti | default('../') }}planter.html" class="nav-link{% if aktiv_side | default('') == 'planter' %} aktiv{% endif %}">Planter</a>
       <form action="{{ op_sti | default('../') }}søg.html" method="get" class="nav-søg" role="search">
         <input type="search" name="q" placeholder="Søg…" class="nav-søg-input" aria-label="Søg i haven">
         <button type="submit" class="nav-søg-knap" aria-label="Søg">🔍</button>
@@ -93,6 +111,15 @@
       if (window.innerWidth <= 768) {
         e.stopPropagation();
         document.getElementById('bede-dropdown').classList.toggle('åben');
+      }
+    });
+
+  // Mobil Dyr-dropdown
+  document.getElementById('dyr-dropdown')?.querySelector('.nav-dropdown-toggle')
+    ?.addEventListener('click', e => {
+      if (window.innerWidth <= 768) {
+        e.stopPropagation();
+        document.getElementById('dyr-dropdown').classList.toggle('åben');
       }
     });
 

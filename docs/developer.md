@@ -63,7 +63,7 @@ site:
   basis_url: "https://example.com"   # bruges i RSS-feeds og iCal
 
 deploy:
-  protokol: sftp         # "sftp", "ftp" eller "ingen"
+  protokol: [ftp, sftp]  # "sftp", "ftp", "ingen" — eller en liste for flere mål
   sftp:
     host: example.com
     bruger: mit_brugernavn

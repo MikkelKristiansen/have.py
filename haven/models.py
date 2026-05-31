@@ -1,3 +1,5 @@
+from datetime import date
+
 from pydantic import BaseModel, Field
 
 
@@ -28,4 +30,15 @@ class Plante(BaseModel):
     høst_til:    int | None = Field(None, ge=1, le=12)
     noter:       str | None = None
     pasning:     str | None = None
+    foto:        FotoModel | None = None
+
+
+class Høne(BaseModel):
+    id:          str
+    navn:        str | None = None
+    race:        str | None = None
+    farve:       str | None = None
+    fødselsdato: str | date | None = None
+    aktiv:       bool = True
+    noter:       str | None = None
     foto:        FotoModel | None = None
