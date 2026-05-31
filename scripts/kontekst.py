@@ -6,9 +6,11 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).parent.parent
+sys.path.insert(0, str(ROOT))
+from haven import __version__ as VERSION
 
-BESKRIVELSE = """\
-# haven – projektkontekst
+BESKRIVELSE = f"""\
+# haven – projektkontekst (v{VERSION})
 
 ## Hvad er det?
 haven er en statisk sitegenerator til personlig haveplanlægning, skrevet i Python.
@@ -28,12 +30,12 @@ Sprog: dansk (kode, UI og dokumentation).
 
 ## Datastruktur (3 YAML-typer)
 1. `data/planter.yaml`           Global plantedatabase (deles på tværs af år)
-2. `data/{år}/{bed}.yaml`        Havelayout for et specifikt år (ét bed pr. fil)
-3. `data/{år}/almanak.yaml`      Årskalender med opgaver og noter
+2. `data/{{år}}/{{bed}}.yaml`        Havelayout for et specifikt år (ét bed pr. fil)
+3. `data/{{år}}/almanak.yaml`      Årskalender med opgaver og noter
 
 ## CLI-kommandoer
 ```
-have build          # Generer HTML til out/{aktivt_år}/
+have build          # Generer HTML til out/{{aktivt_år}}/
 have watch          # Auto-rebuild ved YAML-ændringer
 have check          # Valider YAML og krydsreferencer
 have deploy         # build + upload (SFTP eller FTP)
@@ -56,6 +58,15 @@ Credentials (SFTP/FTP) kun i `.env`, aldrig i YAML.
 ## Stack
 Python 3.11+, Jinja2, PyYAML, Pydantic, Pillow, ruamel-yaml, questionary, livereload
 """
+
+
+def mappe_træ(sti: str, ekstra_args: list[str] | None = None) -> str:
+    try:
+        cmd = ["tree", sti] + (ekstra_args or [])
+        resultat = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True, check=True)
+        return resultat.stdout.strip()
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return f"(tree ikke tilgængeligt for {sti})"
 
 
 def git_log(antal: int = 15) -> str:
@@ -89,6 +100,16 @@ def git_status() -> str:
 def byg_kontekst(antal_commits: int = 15) -> str:
     linjer = [
         BESKRIVELSE,
+        "## Pakkestruktur (haven/)",
+        "```",
+        mappe_træ("haven", ["--dirsfirst", "-I", "__pycache__"]),
+        "```",
+        "",
+        "## Datafiler (data/)",
+        "```",
+        mappe_træ("data"),
+        "```",
+        "",
         "## Seneste commits",
         "```",
         git_log(antal_commits),
@@ -103,13 +124,22 @@ def byg_kontekst(antal_commits: int = 15) -> str:
 
 
 def main() -> None:
-    antal = int(sys.argv[1]) if len(sys.argv) > 1 else 15
-    kontekst = byg_kontekst(antal)
+    import argparse
 
-    ud_fil = ROOT / "KONTEKST.md"
-    ud_fil.write_text(kontekst, encoding="utf-8")
-    print(f"Kontekst skrevet til {ud_fil}")
-    print(f"({kontekst.count(chr(10))} linjer, {len(kontekst)} tegn)")
+    parser = argparse.ArgumentParser(description="Generér projektkontekst til LLM-sessioner")
+    parser.add_argument("antal", nargs="?", type=int, default=15, help="Antal commits (standard: 15)")
+    parser.add_argument("--skriv", action="store_true", help="Skriv til KONTEKST.md i stedet for stdout")
+    args = parser.parse_args()
+
+    kontekst = byg_kontekst(args.antal)
+
+    if args.skriv:
+        ud_fil = ROOT / "KONTEKST.md"
+        ud_fil.write_text(kontekst, encoding="utf-8")
+        print(f"Kontekst skrevet til {ud_fil}", file=sys.stderr)
+        print(f"({kontekst.count(chr(10))} linjer, {len(kontekst)} tegn)", file=sys.stderr)
+    else:
+        print(kontekst)
 
 
 if __name__ == "__main__":
