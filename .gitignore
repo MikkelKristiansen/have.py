@@ -42,6 +42,7 @@ fotos/*.png
 # === Interne arbejdsdokumenter ===
 briefs/
 CLAUDE.md
+KONTEKST.md
 memory/
 
 # === Editor / IDE ===
