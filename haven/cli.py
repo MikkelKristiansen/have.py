@@ -2859,6 +2859,63 @@ def upload(filer):
     _kør_lftp(script)
 
 
+# ── Havedata-backup (data/-repoet) ──────────────────────────────────────────────
+
+def gem_data(besked: str | None = None) -> None:
+    """Commit + push af havedata-repoet i data/. Springer over hvis intet er ændret.
+
+    data/ er et selvstændigt git-repo (typisk med remote på RPi5), adskilt fra
+    kode-repoet. Denne kommando samler den daglige add+commit+push i ét.
+    """
+    data_rod = sti(_config, "data")
+    if not (data_rod / ".git").exists():
+        print(f"❌ {data_rod} er ikke et git-repo — kan ikke gemme havedata.\n"
+              f"   Initialisér det først, fx: git -C {data_rod} init", file=sys.stderr)
+        sys.exit(1)
+
+    def git(*argv):
+        return subprocess.run(["git", "-C", str(data_rod), *argv],
+                              text=True, capture_output=True)
+
+    r = git("add", "-A")
+    if r.returncode != 0:
+        print(f"❌ git add fejlede:\n{r.stderr}", file=sys.stderr)
+        sys.exit(1)
+
+    # Intet staged? Så er der intet at gemme.
+    if git("diff", "--cached", "--quiet").returncode == 0:
+        print("ℹ️  Ingen ændringer at gemme.")
+        return
+
+    antal = len([l for l in git("diff", "--cached", "--name-only").stdout.splitlines() if l.strip()])
+    ord_  = "ændring" if antal == 1 else "ændringer"
+
+    if not besked or not besked.strip():
+        besked = f"opdater havedata {datetime.date.today().isoformat()}"
+
+    r = git("commit", "-m", besked)
+    if r.returncode != 0:
+        print(f"❌ git commit fejlede:\n{r.stderr or r.stdout}", file=sys.stderr)
+        sys.exit(1)
+    print(f"  ✓ {antal} {ord_} committet: \"{besked}\"")
+
+    r = git("push")
+    if r.returncode != 0:
+        print(f"⚠️  Committet lokalt, men push fejlede:\n{r.stderr.strip()}", file=sys.stderr)
+        print(f"   Dine data er gemt lokalt — prøv igen senere med: have gem-data", file=sys.stderr)
+        sys.exit(1)
+
+    # Vis push-destinationen (remote-host) hvis muligt
+    url  = git("remote", "get-url", "origin").stdout.strip()
+    dest = url
+    if "://" in url:
+        from urllib.parse import urlparse
+        dest = urlparse(url).hostname or url
+    elif "@" in url and ":" in url:               # scp-syntaks: bruger@host:sti
+        dest = url.split("@", 1)[1].split(":", 1)[0]
+    print(f"  ↑ pushet til {dest}" if url else "  ↑ pushet")
+
+
 # ── Projektinfo til forsiden ───────────────────────────────────────────────────
 
 def projekt_info(yaml_sti):
@@ -6202,6 +6259,11 @@ def main():
              "--protokol ftp sftp (uploader i nævnt rækkefølge)",
     )
 
+    # Subkommando: gem-data
+    _p_gem = subparsers.add_parser("gem-data", help="Commit + push af havedata-repoet (data/)")
+    _p_gem.add_argument("besked", nargs="?", metavar="BESKED",
+                        help="Valgfri commit-besked (standard: 'opdater havedata <dato>')")
+
     # Subkommando: hent-vejr
     hent_vejr_parser = subparsers.add_parser("hent-vejr", help="Hent historisk vejrdata fra Open-Meteo og skriv til almanak.yaml")
     hent_vejr_parser.add_argument("--år", type=int, default=datetime.date.today().year,
@@ -6283,6 +6345,10 @@ def main():
             hons_ny_høne()
         else:
             hons_parser.print_help()
+        sys.exit(0)
+
+    if args.kommando == "gem-data":
+        gem_data(args.besked)
         sys.exit(0)
 
     if args.kommando == "hent-vejr":
