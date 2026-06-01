@@ -6187,6 +6187,11 @@ def main():
         subprocess.run([sys.executable, "-m", "haven.havefotos"] + sys.argv[2:])
         sys.exit(0)
 
+    # hent-inbox delegerer til haven.inbox inkl. alle dens flags
+    if len(sys.argv) >= 2 and sys.argv[1] == "hent-inbox":
+        subprocess.run([sys.executable, "-m", "haven.inbox"] + sys.argv[2:])
+        sys.exit(0)
+
     parser = argparse.ArgumentParser(
         description="have — generer HTML + indeks for hele haven.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -6226,6 +6231,11 @@ def main():
 
     # Subkommando: hent-havefotos
     subparsers.add_parser("hent-havefotos", help="Tjek og synkronisér almanakfotos i entries")
+
+    # Subkommando: hent-inbox (delegeres til haven.inbox; her kun for --help-synlighed)
+    _p_inbox = subparsers.add_parser("hent-inbox", help="Hent dagbogsindlæg fra have-inbox-webappen (SFTP) og behandl dem")
+    _p_inbox.add_argument("--skriv", action="store_true",
+                          help="Importér til data/, byg site og ryd serverens inbox (uden flaget: dry-run)")
 
     # Subkommando: nyt-bed
     subparsers.add_parser("nyt-bed", help="Tilføj nyt bed til en zone-YAML-fil (interaktiv wizard)")
