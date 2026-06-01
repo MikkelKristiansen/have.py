@@ -24,12 +24,15 @@ FOTOS_MAPPE  = config_sti(_config, "fotos") / "entries" / str(AKTIVT_ÅR)
 
 
 def hent_md_fotos() -> list[dict]:
-    """Returnerer liste af {dato, område_id, fil} for alle markdown-entries med foto-felt."""
+    """Returnerer liste af {dato, område_id, fil} for alle markdown-entries med foto-felt.
+
+    Entries ligger i undermapper (fx entries/sektioner/), så der glob'es rekursivt.
+    """
     import re as _re
     result = []
     if not ENTRIES_MAPPE.is_dir():
         return result
-    for sti in sorted(ENTRIES_MAPPE.glob("*.md")):
+    for sti in sorted(ENTRIES_MAPPE.glob("**/*.md")):
         tekst = sti.read_text(encoding="utf-8")
         m = _re.match(r"^---\n(.*?)\n---", tekst, _re.DOTALL)
         if not m:
@@ -51,6 +54,33 @@ def hent_md_fotos() -> list[dict]:
                 "område_id": fm.get("zone") or fm.get("område_id", "?"),
                 "fil":       fil,
                 "_kilde":    str(sti),   # til fejlfinding
+            })
+    return result
+
+
+def hent_hons_fotos() -> list[dict]:
+    """Foto-referencer fra hønse-entries (entries/hons/*.yaml) med foto-felt."""
+    result = []
+    hons_mappe = ENTRIES_MAPPE / "hons"
+    if not hons_mappe.is_dir():
+        return result
+    for sti in sorted(hons_mappe.glob("*.yaml")):
+        try:
+            e = yaml.safe_load(sti.read_text(encoding="utf-8"))
+        except yaml.YAMLError:
+            continue
+        if not isinstance(e, dict):
+            continue
+        foto = e.get("foto")
+        if not foto:
+            continue
+        fil = foto if isinstance(foto, str) else foto.get("fil", "")
+        if fil:
+            result.append({
+                "dato":      str(e.get("dato", "?")),
+                "område_id": e.get("zone") or "hons",
+                "fil":       fil,
+                "_kilde":    str(sti),
             })
     return result
 
@@ -83,9 +113,11 @@ def main():
     # Saml alle entries der har et foto-felt
     med_foto = [(i, e) for i, e in enumerate(entries) if e.get("foto")]
 
-    # Flyt markdown-entries ind som pseudo-entries (i=None, ingen YAML-skrivning)
+    # Flyt markdown- og hønse-entries ind som pseudo-entries (i=None, ingen YAML-skrivning)
     for md_e in hent_md_fotos():
         med_foto.append((None, md_e))
+    for hons_e in hent_hons_fotos():
+        med_foto.append((None, hons_e))
 
     # ── --vis: list alle entries med foto ────────────────────────────────────────
     if args.vis:
@@ -125,8 +157,7 @@ def main():
     # ── Standard: tjek manglende filer (tør kørsel eller --skriv) ────────────────
     mangler = []
     for i, e in med_foto:
-        foto = e.get("foto")
-        fil  = foto.get("fil", "") if isinstance(foto, dict) else (foto or "")
+        fil = _foto_fil(e)
         if not fil:
             continue
         sti = FOTOS_MAPPE / fil
@@ -149,10 +180,12 @@ def main():
     if not args.skriv:
         alle_filer = {f.name for f in FOTOS_MAPPE.iterdir() if f.is_file()} if FOTOS_MAPPE.exists() else set()
         brugte     = {_foto_fil(e) for _, e in med_foto if _foto_fil(e)}
-        ubrugte    = alle_filer - brugte
+        ubrugte    = sorted(alle_filer - brugte)
         print(f"\n📷 {len(med_foto)} entries med foto  |  "
               f"{len(alle_filer)} filer i fotos/  |  "
               f"{len(ubrugte)} uregistrerede")
+        for navn in ubrugte:
+            print(f"     • {navn}")
 
     # ── Optimer overstoere fotos ──────────────────────────────────────────────────
     if FOTOS_MAPPE.exists():
