@@ -155,6 +155,7 @@ def _dyr_label(d: dict) -> str:
 
 # Hønse-entry-typer: ikon + dansk label. Styrer både wizard-valg og visning.
 HONS_TYPER = {
+    "note":         {"ikon": "📝", "label": "Note"},
     "æglægning":    {"ikon": "🥚", "label": "Æglægning"},
     "ruge-start":   {"ikon": "🐣", "label": "Rugestart"},
     "foderkøb":     {"ikon": "🌾", "label": "Foderkøb"},
@@ -619,6 +620,9 @@ def _les_hons_entries(mappe) -> list:
         for nøgle in ("dato", "forventet_klæk"):
             if hasattr(e.get(nøgle), "isoformat"):
                 e[nøgle] = e[nøgle].isoformat()
+        # Normaliser foto: string → {fil, tekst} som skabelonen forventer (jf. dagbog)
+        if "foto" in e and isinstance(e["foto"], str):
+            e["foto"] = {"fil": os.path.basename(e["foto"]), "tekst": ""}
         e["_fil"] = Path(fil).stem
         entries.append(e)
     return entries
@@ -628,6 +632,8 @@ def _hons_resume(e: dict) -> str:
     """Byg en kort, menneskelæselig opsummering af en hønse-entry til loggen."""
     t = e.get("type", "")
     dele: list = []
+    if t == "note":
+        return e.get("høne_label") or ""
     if t == "æglægning":
         return f"{e.get('æg', 0)} æg"
     if t == "ruge-start":
@@ -3398,6 +3404,68 @@ def opret_entry(dato: str, zone: str, tekst: str,
 
     with open(sti, "w", encoding="utf-8") as f:
         f.write("\n".join(linjer) + "\n")
+
+    if _generer:
+        generer_alle()
+
+    return str(sti)
+
+
+def opret_hons_entry(dato: str, hons_type: str, høne=None, noter: str = "",
+                     foto_kilde: str = None, ekstra: dict = None,
+                     _generer: bool = True) -> str:
+    """Opretter en hønse-entry som YAML i entries/hons/. Returnerer stien.
+
+    Spejler opret_entry: foto kopieres til fotos/entries/{år}/ med thumbnail.
+    ekstra = dict med type-specifikke felter (fx {'æg': 3}). Tomme værdier dropppes.
+    """
+    import shutil
+    entries_mappe = os.path.join(DATA_MAPPE, "entries", "hons")
+    os.makedirs(entries_mappe, exist_ok=True)
+
+    basis = f"{dato}-{hons_type}"
+    sti   = os.path.join(entries_mappe, f"{basis}.yaml")
+    n     = 2
+    while os.path.exists(sti):
+        sti = os.path.join(entries_mappe, f"{basis}-{n}.yaml")
+        n  += 1
+
+    foto_navn = None
+    if foto_kilde:
+        fotos_entries_kilde = os.path.join("fotos", "entries", str(AKTIVT_ÅR))
+        os.makedirs(fotos_entries_kilde, exist_ok=True)
+        ext       = os.path.splitext(foto_kilde)[1]
+        foto_navn = os.path.splitext(os.path.basename(sti))[0] + ext
+        foto_dest = os.path.join(fotos_entries_kilde, foto_navn)
+        shutil.copy2(foto_kilde, foto_dest)
+        try:
+            from PIL import Image, ImageOps
+            foto_dest_sti = Path(foto_dest)
+            thumbs_mappe = foto_dest_sti.parent / "thumbs"
+            thumbs_mappe.mkdir(exist_ok=True)
+            with Image.open(foto_dest_sti) as img:
+                img = ImageOps.exif_transpose(img)
+                img.thumbnail((400, 400))
+                if foto_dest_sti.suffix.lower() in (".jpg", ".jpeg"):
+                    img.save(thumbs_mappe / foto_dest_sti.name, "JPEG", quality=82, optimize=True)
+                else:
+                    img.save(thumbs_mappe / foto_dest_sti.name, optimize=True)
+        except Exception as e:
+            print(f"⚠️  Thumbnail ikke genereret: {e}")
+
+    entry: dict = {"dato": dato, "type": hons_type}
+    if høne:
+        entry["høne"] = høne
+    for k, v in (ekstra or {}).items():
+        if v not in (None, ""):
+            entry[k] = v
+    if noter:
+        entry["noter"] = noter
+    if foto_navn:
+        entry["foto"] = foto_navn
+
+    with open(sti, "w", encoding="utf-8") as f:
+        yaml.dump(entry, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
 
     if _generer:
         generer_alle()

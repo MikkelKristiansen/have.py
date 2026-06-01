@@ -26,7 +26,7 @@ from pathlib import Path
 
 import yaml
 
-from .cli import opret_entry, generer_alle, _find_yaml_filer, _lftp_q
+from .cli import opret_entry, opret_hons_entry, generer_alle, _find_yaml_filer, _lftp_q
 from .config import load_config
 
 _cfg = load_config()
@@ -76,8 +76,23 @@ def ryd_på_server(navne: list[str]) -> int:
     return _kør_lftp(cmds)
 
 
+def _find_foto(mappe: Path, data: dict):
+    """Returnér sti til første foto i mappen, eller None (advarer hvis refereret men mangler)."""
+    fotos = data.get("fotos") or []
+    if not fotos:
+        return None
+    fp = mappe / fotos[0]
+    if fp.exists():
+        return str(fp)
+    print(f"      ⚠️  foto {fotos[0]} mangler i mappen — gemmes uden foto")
+    return None
+
+
 def _læs_entry(mappe: Path):
-    """Læs og valider ét indlæg. Returnér (felter, fejltekst-eller-None)."""
+    """Læs og valider ét indlæg. Returnér (felter, fejltekst-eller-None).
+
+    felter['kind'] er 'dagbog' eller 'hons' og bestemmer hvordan det importeres.
+    """
     ey = mappe / "entry.yaml"
     if not ey.exists():
         return None, "ingen entry.yaml"
@@ -87,32 +102,40 @@ def _læs_entry(mappe: Path):
         return None, f"ugyldig YAML ({e})"
 
     typ = data.get("type", "dagbog")
-    if typ != "dagbog":
-        return None, f"type {typ!r} understøttes ikke endnu"
-
     dato = data.get("dato")
-    zone = data.get("zone")
-    tekst = (data.get("tekst") or "").strip()
-    if not (dato and zone and tekst):
-        return None, "mangler dato, zone eller tekst"
+    if not dato:
+        return None, "mangler dato"
+    foto_kilde = _find_foto(mappe, data)
 
-    plante_id = data.get("plante_id") or []
-    if isinstance(plante_id, str):
-        plante_id = [plante_id]
+    if typ == "dagbog":
+        zone = data.get("zone")
+        tekst = (data.get("tekst") or "").strip()
+        if not (zone and tekst):
+            return None, "mangler zone eller tekst"
+        plante_id = data.get("plante_id") or []
+        if isinstance(plante_id, str):
+            plante_id = [plante_id]
+        return {"kind": "dagbog", "dato": str(dato), "zone": str(zone),
+                "tekst": tekst, "plante_id": plante_id, "foto_kilde": foto_kilde}, None
 
-    foto_kilde = None
-    fotos = data.get("fotos") or []
-    if fotos:
-        fp = mappe / fotos[0]
-        if fp.exists():
-            foto_kilde = str(fp)
-        else:
-            print(f"      ⚠️  foto {fotos[0]} mangler i mappen — gemmes uden foto")
+    if typ == "hons":
+        hons_type = str(data.get("hons_type") or "note")
+        tekst = (data.get("tekst") or "").strip()
+        høne = data.get("høne") or None
+        ekstra = {}
+        if data.get("æg") not in (None, ""):
+            ekstra["æg"] = data.get("æg")
+        if not (tekst or høne or ekstra):
+            return None, "tomt hønse-indlæg (hverken tekst, høne eller data)"
+        return {"kind": "hons", "dato": str(dato), "hons_type": hons_type,
+                "høne": høne, "noter": tekst, "ekstra": ekstra, "foto_kilde": foto_kilde}, None
 
-    return {
-        "dato": str(dato), "zone": str(zone), "tekst": tekst,
-        "plante_id": plante_id, "foto_kilde": foto_kilde,
-    }, None
+    return None, f"type {typ!r} understøttes ikke"
+
+
+def _rel(sti) -> str:
+    s = str(sti)
+    return str(Path(s).relative_to(Path.cwd())) if s.startswith(str(Path.cwd())) else s
 
 
 def behandl(lokal: Path, skriv: bool) -> list[str]:
@@ -126,16 +149,29 @@ def behandl(lokal: Path, skriv: bool) -> list[str]:
             print(f"  ⚠️  {mappe.name}: {fejl} — springer over")
             continue
         flag = " + foto" if felter["foto_kilde"] else ""
-        n_pl = len(felter["plante_id"])
-        uddrag = felter["tekst"].splitlines()[0][:60]
-        print(f"  • {felter['dato']} / {felter['zone']} / {n_pl} plante(r){flag}: {uddrag}")
-        if skriv:
-            sti = opret_entry(
-                felter["dato"], felter["zone"], felter["tekst"],
-                plante_id=felter["plante_id"], foto_kilde=felter["foto_kilde"],
-                _generer=False,
-            )
-            print(f"      → {Path(sti).relative_to(Path.cwd())}" if str(sti).startswith(str(Path.cwd())) else f"      → {sti}")
+
+        if felter["kind"] == "dagbog":
+            uddrag = felter["tekst"].splitlines()[0][:60]
+            print(f"  • [dagbog] {felter['dato']} / {felter['zone']} / "
+                  f"{len(felter['plante_id'])} plante(r){flag}: {uddrag}")
+            if skriv:
+                sti = opret_entry(
+                    felter["dato"], felter["zone"], felter["tekst"],
+                    plante_id=felter["plante_id"], foto_kilde=felter["foto_kilde"],
+                    _generer=False,
+                )
+                print(f"      → {_rel(sti)}")
+        else:  # hons
+            hl = felter["høne"] or "flokken"
+            uddrag = felter["noter"].splitlines()[0][:50] if felter["noter"] else ""
+            print(f"  • [høns/{felter['hons_type']}] {felter['dato']} / {hl}{flag}: {uddrag}")
+            if skriv:
+                sti = opret_hons_entry(
+                    felter["dato"], felter["hons_type"], høne=felter["høne"],
+                    noter=felter["noter"], foto_kilde=felter["foto_kilde"],
+                    ekstra=felter["ekstra"], _generer=False,
+                )
+                print(f"      → {_rel(sti)}")
         behandlede.append(mappe.name)
     return behandlede
 
