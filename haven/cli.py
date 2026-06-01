@@ -6242,6 +6242,28 @@ def hent_vejr(år: int, force: bool = False):
     print(f"\n✅ {len(skrevne)} måned(er) skrevet til {almanak_sti.name}")
 
 
+def kør_alt() -> None:
+    """Kør hele den daglige arbejdsgang i rækkefølge: hent nye indlæg fra inboxen,
+    gem havedata-repoet, og byg + deploy sitet. Et fejlende trin stopper ikke de
+    øvrige (afslutter dog med fejlkode hvis noget gik galt)."""
+    trin = [
+        ("📥  Henter dagbogsindlæg fra inboxen", ["have", "hent-inbox", "--skriv"]),
+        ("💾  Gemmer havedata (commit + push)",   ["have", "gem-data"]),
+        ("🚀  Bygger og deployer",                ["have", "deploy"]),
+    ]
+    fejlede = []
+    for navn, kmd in trin:
+        print(f"\n{'═' * 52}\n  {navn}\n{'═' * 52}")
+        if subprocess.run(kmd).returncode != 0:
+            fejlede.append(navn.strip())
+            print("⚠️  Trinnet meldte en fejl — fortsætter med resten.")
+    print()
+    if fejlede:
+        print(f"⚠️  'have alt' færdig, men disse trin havde problemer: {', '.join(fejlede)}")
+        sys.exit(1)
+    print("✅  'have alt' færdig — hentet, gemt og deployet. 🌿")
+
+
 # ── Main ───────────────────────────────────────────────────────────────────────
 
 def main():
@@ -6337,6 +6359,9 @@ def main():
              "--protokol ftp sftp (uploader i nævnt rækkefølge)",
     )
 
+    # Subkommando: alt — kør hele arbejdsgangen
+    subparsers.add_parser("alt", help="Kør hele arbejdsgangen: hent-inbox → gem-data → deploy")
+
     # Subkommando: gem-data
     _p_gem = subparsers.add_parser("gem-data", help="Commit + push af havedata-repoet (data/)")
     _p_gem.add_argument("besked", nargs="?", metavar="BESKED",
@@ -6423,6 +6448,10 @@ def main():
             hons_ny_høne()
         else:
             hons_parser.print_help()
+        sys.exit(0)
+
+    if args.kommando == "alt":
+        kør_alt()
         sys.exit(0)
 
     if args.kommando == "gem-data":
