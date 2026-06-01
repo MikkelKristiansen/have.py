@@ -36,6 +36,7 @@ _config = load_config()
 AKTIVT_ÅR   = _config["aktivt_år"]
 DATA_MAPPE  = data_mappe(_config)
 OUT_MAPPE   = out_mappe(_config)
+FOTOS_MAPPE = sti(_config, "fotos")   # absolut — så foto-skrivning er uafhængig af cwd
 PLANTER_FIL = sti(_config, "data") / "planter.yaml"
 DYR_FIL     = sti(_config, "data") / "dyr.yaml"
 ALMANAK_FIL = DATA_MAPPE / "almanak.yaml"
@@ -3362,7 +3363,7 @@ def opret_entry(dato: str, zone: str, tekst: str,
     foto_sti = None
     if foto_kilde:
         # Gem i fotos/entries/{AKTIVT_ÅR}/ — generatoren kopierer derfra til out/
-        fotos_entries_kilde = os.path.join("fotos", "entries", str(AKTIVT_ÅR))
+        fotos_entries_kilde = FOTOS_MAPPE / "entries" / str(AKTIVT_ÅR)
         os.makedirs(fotos_entries_kilde, exist_ok=True)
         ext       = os.path.splitext(foto_kilde)[1]
         foto_navn = os.path.splitext(os.path.basename(sti))[0] + ext
@@ -3432,7 +3433,7 @@ def opret_hons_entry(dato: str, hons_type: str, høne=None, noter: str = "",
 
     foto_navn = None
     if foto_kilde:
-        fotos_entries_kilde = os.path.join("fotos", "entries", str(AKTIVT_ÅR))
+        fotos_entries_kilde = FOTOS_MAPPE / "entries" / str(AKTIVT_ÅR)
         os.makedirs(fotos_entries_kilde, exist_ok=True)
         ext       = os.path.splitext(foto_kilde)[1]
         foto_navn = os.path.splitext(os.path.basename(sti))[0] + ext
