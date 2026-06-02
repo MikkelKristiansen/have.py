@@ -1,0 +1,180 @@
+"""haven.deploy — upload (SFTP/FTP via lftp), haven.yaml-opdatering og gem-data.
+
+Sideløbende handler-modul i cli-opdelingen (se briefs/cli-opdeling.md, fase 5).
+Afhænger af config (sti) + kontekst (SFTP_*/FTP_*/OUT_MAPPE/_config) + stdlib.
+normaliser_protokoller + GYLDIGE_PROTOKOLLER bor i kontekst (fase 1).
+"""
+
+import datetime
+import os
+import subprocess
+import sys
+
+from .config import sti
+from .kontekst import (
+    _config, OUT_MAPPE,
+    SFTP_HOST, SFTP_BRUGER, SFTP_MAPPE, SFTP_KODE,
+    FTP_HOST, FTP_BRUGER, FTP_MAPPE, FTP_KODE,
+)
+
+__all__ = [
+    "upload", "upload_ftp", "gem_data",
+    "_opdater_haven_yaml", "_opdater_ftp_config",
+]
+
+
+def _opdater_haven_yaml(fn, arbejdsmappe: str = "."):
+    """Læs, modificér og skriv haven.yaml — bevarer kommentarer via ruamel.yaml."""
+    from ruamel.yaml import YAML
+    sti = os.path.join(arbejdsmappe, "haven.yaml")
+    ryaml = YAML()
+    ryaml.preserve_quotes = True
+    with open(sti, encoding="utf-8") as f:
+        cfg = ryaml.load(f)
+    fn(cfg)
+    with open(sti, "w", encoding="utf-8") as f:
+        ryaml.dump(cfg, f)
+
+
+def _opdater_ftp_config(host, bruger, kode, mappe, arbejdsmappe: str = "."):
+    """Skriv FTP-konfiguration (host/bruger/mappe) til haven.yaml."""
+    def _opdater(cfg):
+        ftp = cfg.setdefault("deploy", {}).setdefault("ftp", {})
+        ftp["host"]   = host
+        ftp["bruger"] = bruger
+        ftp["mappe"]  = mappe
+    _opdater_haven_yaml(_opdater, arbejdsmappe)
+
+
+def _lftp_q(værdi) -> str:
+    """Dobbelt-citér en streng til brug i en lftp-kommando (escaper \\ og ")."""
+    s = str(værdi).replace("\\", "\\\\").replace('"', '\\"')
+    return f'"{s}"'
+
+
+def _kør_lftp(script: str) -> None:
+    """Kør et lftp-kommandoscript via stdin.
+
+    Credentials sendes via stdin (user-kommandoen), IKKE som argv — så
+    adgangskoden ikke kan aflæses i procestabellen (ps/proc) under upload.
+    """
+    try:
+        result = subprocess.run(
+            ["lftp"], input=script, text=True, capture_output=True,
+        )
+    except FileNotFoundError:
+        print("❌ lftp er ikke installeret — kør: sudo pacman -S lftp")
+        sys.exit(1)
+
+    if result.stdout:
+        print(result.stdout, end="")
+    if result.returncode != 0:
+        print(f"❌ lftp-fejl (exit {result.returncode}):")
+        if result.stderr:
+            print(result.stderr, end="", file=sys.stderr)
+        sys.exit(1)
+    print("✅ Alle filer uploadet via lftp.")
+
+
+def upload_ftp(_filer):
+    """Upload hele out/-mappen til FTP-server via lftp mirror (kun ændrede filer)."""
+    if not FTP_KODE:
+        print("❌ HAVE_FTP_KODE er ikke sat — kør: export HAVE_FTP_KODE=ditpassword")
+        sys.exit(1)
+    if not FTP_MAPPE or FTP_MAPPE.strip("/ ") == "":
+        print("❌ deploy.ftp.mappe er ikke sat (eller er '/') — afbryder.\n"
+              "   'mirror --delete' ville ellers spejle mod serverens rod og kunne\n"
+              "   slette alt der ikke findes lokalt. Sæt en undermappe i haven.yaml.")
+        sys.exit(1)
+
+    out_rod = OUT_MAPPE.parent
+    print(f"  ↑ {out_rod}/ → {FTP_BRUGER}@{FTP_HOST}:{FTP_MAPPE}/")
+    script = "\n".join([
+        f"open {_lftp_q(f'ftp://{FTP_HOST}')}",
+        f"user {_lftp_q(FTP_BRUGER)} {_lftp_q(FTP_KODE)}",
+        f"mirror -R --delete --verbose {_lftp_q(f'{out_rod}/')} {_lftp_q(f'{FTP_MAPPE}/')}",
+        "bye",
+        "",
+    ])
+    _kør_lftp(script)
+
+
+def upload(filer):
+    """Upload HTML-filer og fotos til server via lftp + SFTP."""
+    if not SFTP_KODE:
+        print("❌ HAVE_SFTP_KODE er ikke sat — kør: export HAVE_SFTP_KODE=ditpassword")
+        sys.exit(1)
+    if not SFTP_MAPPE or SFTP_MAPPE.strip("/ ") == "":
+        print("❌ deploy.sftp.mappe er ikke sat (eller er '/') — afbryder.\n"
+              "   'mirror --delete' ville ellers spejle mod serverens rod og kunne\n"
+              "   slette alt der ikke findes lokalt. Sæt en undermappe i haven.yaml.")
+        sys.exit(1)
+
+    out_rod = OUT_MAPPE.parent
+    print(f"  ↑ {out_rod}/ → {SFTP_BRUGER}@{SFTP_HOST}:{SFTP_MAPPE}/")
+    script = "\n".join([
+        "set sftp:connect-program \"ssh -o IdentityAgent=none\"",
+        f"open {_lftp_q(f'sftp://{SFTP_HOST}')}",
+        f"user {_lftp_q(SFTP_BRUGER)} {_lftp_q(SFTP_KODE)}",
+        f"mirror -R --delete --verbose {_lftp_q(f'{out_rod}/')} {_lftp_q(f'{SFTP_MAPPE}/')}",
+        "bye",
+        "",
+    ])
+    _kør_lftp(script)
+
+
+# ── Havedata-backup (data/-repoet) ──────────────────────────────────────────────
+
+def gem_data(besked: str | None = None) -> None:
+    """Commit + push af havedata-repoet i data/. Springer over hvis intet er ændret.
+
+    data/ er et selvstændigt git-repo (typisk med remote på RPi5), adskilt fra
+    kode-repoet. Denne kommando samler den daglige add+commit+push i ét.
+    """
+    data_rod = sti(_config, "data")
+    if not (data_rod / ".git").exists():
+        print(f"❌ {data_rod} er ikke et git-repo — kan ikke gemme havedata.\n"
+              f"   Initialisér det først, fx: git -C {data_rod} init", file=sys.stderr)
+        sys.exit(1)
+
+    def git(*argv):
+        return subprocess.run(["git", "-C", str(data_rod), *argv],
+                              text=True, capture_output=True)
+
+    r = git("add", "-A")
+    if r.returncode != 0:
+        print(f"❌ git add fejlede:\n{r.stderr}", file=sys.stderr)
+        sys.exit(1)
+
+    # Intet staged? Så er der intet at gemme.
+    if git("diff", "--cached", "--quiet").returncode == 0:
+        print("ℹ️  Ingen ændringer at gemme.")
+        return
+
+    antal = len([l for l in git("diff", "--cached", "--name-only").stdout.splitlines() if l.strip()])
+    ord_  = "ændring" if antal == 1 else "ændringer"
+
+    if not besked or not besked.strip():
+        besked = f"opdater havedata {datetime.date.today().isoformat()}"
+
+    r = git("commit", "-m", besked)
+    if r.returncode != 0:
+        print(f"❌ git commit fejlede:\n{r.stderr or r.stdout}", file=sys.stderr)
+        sys.exit(1)
+    print(f"  ✓ {antal} {ord_} committet: \"{besked}\"")
+
+    r = git("push")
+    if r.returncode != 0:
+        print(f"⚠️  Committet lokalt, men push fejlede:\n{r.stderr.strip()}", file=sys.stderr)
+        print(f"   Dine data er gemt lokalt — prøv igen senere med: have gem-data", file=sys.stderr)
+        sys.exit(1)
+
+    # Vis push-destinationen (remote-host) hvis muligt
+    url  = git("remote", "get-url", "origin").stdout.strip()
+    dest = url
+    if "://" in url:
+        from urllib.parse import urlparse
+        dest = urlparse(url).hostname or url
+    elif "@" in url and ":" in url:               # scp-syntaks: bruger@host:sti
+        dest = url.split("@", 1)[1].split(":", 1)[0]
+    print(f"  ↑ pushet til {dest}" if url else "  ↑ pushet")
