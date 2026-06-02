@@ -41,8 +41,10 @@ def generer_søg_json(out_rod: Path, data_rod: Path, plante_db: dict) -> Path:
             except Exception:
                 pass
 
-        # Entries fra markdown-filer
-        entries_mappe = år_mappe / "entries"
+        # Entries fra markdown-filer. Diary-markdown bor i entries/sektioner/ (samme
+        # mappe som rendering-koden læser via _les_entries_mappe) — så søgeindekset og
+        # de viste sider altid dækker præcis de samme entries.
+        entries_mappe = år_mappe / "entries" / "sektioner"
         råentries: list[tuple[str, dict, str]] = []
         if entries_mappe.is_dir():
             for fil in sorted(entries_mappe.iterdir()):
