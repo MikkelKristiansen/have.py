@@ -419,9 +419,9 @@ def opret_entry(dato: str, zone: str, tekst: str,
         f.write("\n".join(linjer) + "\n")
 
     if _generer:
-        # Lazy import bryder cyklen wizards→orkestrator. Orkestratoren generer_alle
-        # bor i cli.py til fase 6 (repointes til .byg når byg.py udskilles).
-        from .cli import generer_alle
+        # Lazy import: byg importerer render-laget (ikke wizards), så en top-level
+        # import ville også gå — men lazy holder importgrafen triviel og robust.
+        from .byg import generer_alle
         generer_alle()
 
     return str(sti)
@@ -484,9 +484,9 @@ def opret_hons_entry(dato: str, hons_type: str, høne=None, noter: str = "",
         yaml.dump(entry, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
 
     if _generer:
-        # Lazy import bryder cyklen wizards→orkestrator. Orkestratoren generer_alle
-        # bor i cli.py til fase 6 (repointes til .byg når byg.py udskilles).
-        from .cli import generer_alle
+        # Lazy import: byg importerer render-laget (ikke wizards), så en top-level
+        # import ville også gå — men lazy holder importgrafen triviel og robust.
+        from .byg import generer_alle
         generer_alle()
 
     return str(sti)
