@@ -10,66 +10,31 @@ Brug:
 """
 
 import sys
-import os
 import argparse
 import argcomplete
-from pathlib import Path
 import subprocess
 import datetime
-import yaml
-from jinja2 import Environment, FileSystemLoader, pass_eval_context
-from pydantic import ValidationError
 
-# ── Konfiguration ──────────────────────────────────────────────────────────────
+# ── Imports ──────────────────────────────────────────────────────────────────────
+#
+# cli.py er kun entry point: argparse-opsætning + main()-dispatch (+ kør_alt). Al
+# logik bor i de udskilte moduler (se briefs/cli-opdeling.md). Importerne herunder
+# er bevidst eksplicitte og afspejler præcis hvad dispatchen kalder.
 
 from . import __version__
-from .config import (
-    load_config, data_mappe, out_mappe, sti,
-    sftp_adgangskode, ftp_adgangskode, PROJECT_ROOT,
+from .kontekst import (
+    PLANTE_DB, PLANTER_FIL, DEPLOY_PROTOKOLLER, normaliser_protokoller,
 )
-from .models import Plante, FotoModel, Høne
-from .wikidata import (wikidata_søg, wikidata_hent_plantedata,
-                       wikidata_hent_foto_url, wikidata_hent_foto_metadata)
-
-# Konstanter + mutérbare databaser (PLANTE_DB/DYR_DB) + HONS_TYPER er flyttet til
-# haven/kontekst.py (se briefs/cli-opdeling.md, fase 1). `import *` holder denne
-# fase inkrementel — funktionskroppe nedenfor er urørt. `_config` er underscore og
-# kommer derfor ikke med `*`; den re-importeres eksplicit (bruges mange steder her).
-from .kontekst import *  # noqa: F401,F403
-from .kontekst import _config  # noqa: F401
-
-# Indlæsning (YAML-load, db-byggere, slug, skriv_hvis_ændret, _les_entries_mappe …)
-# og validering (valider_*, check, opdater_schema_*) er flyttet til haven/indlaes.py
-# og haven/validering.py (se briefs/cli-opdeling.md, fase 2). `import *` (de eksporterer
-# eksplicitte __all__, inkl. de _underscore-helpers cli stadig kalder) holder fasen
-# inkrementel — funktionskroppene nedenfor er urørte.
-from .indlaes import *      # noqa: F401,F403
-from .validering import *   # noqa: F401,F403
-
-# Jinja-miljøet (lav_jinja_env + alle filtre) og kontrast_farve er flyttet til
-# haven/skabeloner.py (se briefs/cli-opdeling.md, fase 3). Template-stien resolver
-# fortsat til haven/templates/ via Path(__file__).parent i det nye modul.
-from .skabeloner import *   # noqa: F401,F403
-
-# Render-laget (fase 4): feeds (iCal/RSS), soeg, hoens, almanak, generering.
-# Udskilles ét modul ad gangen; orkestratoren generer_alle bliver i cli.py til fase 6.
-from .feeds import *        # noqa: F401,F403
-from .soeg import *         # noqa: F401,F403
-from .hoens import *        # noqa: F401,F403
-from .almanak import *      # noqa: F401,F403
-from .generering import *   # noqa: F401,F403
-
-# Sideløbende handlere (fase 5): scaffold (init-skabeloner), deploy (upload/gem-data),
-# vejr (Open-Meteo). Wizards i cli.py bruger scaffold + deploy via disse import *.
-from .scaffold import *     # noqa: F401,F403
-from .deploy import *       # noqa: F401,F403
-from .vejr import *         # noqa: F401,F403
-
-# Interaktive wizards + opret-kerner (fase 5). main()-dispatch nedenfor kalder dem.
-from .wizards import *      # noqa: F401,F403
-
-# Orkestratoren generer_alle + _regenerer_gl_år_sider (fase 6). main()/kør_alt bruger den.
-from .byg import *          # noqa: F401,F403
+from .indlaes import byg_plante_db, _find_yaml_filer
+from .validering import check, opdater_schema_plante_ids, opdater_schema_planter
+from .byg import generer_alle
+from .deploy import upload, upload_ftp, gem_data
+from .vejr import hent_vejr
+from .wizards import (
+    init_projekt, nyt_område, nyt_år, ny_entry, ny_plante, ret_i_plante_yaml,
+    nyt_bed, plant_en_plante, riv_en_plante_op, ret_en_plante, ret_bed,
+    hons_ny_høne, hons_ny_obs,
+)
 
 
 def kør_alt() -> None:

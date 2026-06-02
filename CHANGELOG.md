@@ -5,6 +5,8 @@ Format følger [Keep a Changelog](https://keepachangelog.com/da/1.0.0/).
 
 ## [Unreleased]
 
+## [1.1.1] — 2026-06-02
+
 ### Tilføjet
 - **Accordion-sektioner** — bede i sektionsoversigten kan foldes ud/ind via `<details>`.
   JavaScript åbner automatisk bede med aktive afgrøder i den aktuelle måned og lukker øvrige.
@@ -21,6 +23,15 @@ Format følger [Keep a Changelog](https://keepachangelog.com/da/1.0.0/).
 - **`entries/sektioner/`-mappe** — markdown-entries for bede og havezoner flyttes
   til `data/{år}/entries/sektioner/` (hønse-entries forbliver i `entries/hons/`).
   `generer_html`, `generer_almanak` og `opret_entry` opdateret tilsvarende.
+
+### Ændret
+- **`cli.py` opdelt i moduler** — den ~6.500 linjers `cli.py` er opdelt i et lagdelt
+  modulhierarki (se `briefs/cli-opdeling.md`): `kontekst`, `indlaes`, `validering`,
+  `skabeloner`, render-laget (`generering`, `feeds`, `soeg`, `hoens`, `almanak`),
+  `byg` (orkestrator), samt handlerne `scaffold`, `deploy`, `vejr`, `wizards`.
+  `cli.py` er nu kun entry point (argparse + dispatch, ~310 linjer). `inbox.py`'s
+  imports repointet fra `cli` til de nye moduler. Ren intern refaktorering uden
+  adfærdsændring — byg-output er byte-identisk (pånær iCal-tidsstempler).
 
 ## [1.1.0] — 2026-05-30
 

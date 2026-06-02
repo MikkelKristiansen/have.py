@@ -14,9 +14,9 @@ bygger sitet og rydder inboxen på serveren.
 
 Konfiguration i haven.yaml under 'inbox:' (host, bruger, sti).
 
-NB om lagdeling: importerer opret_entry + lftp-quoting + byg-funktioner fra .cli.
-Efter den planlagte cli-opdeling (briefs/cli-opdeling.md) flyttes de til
-wizards.py/deploy.py/byg.py — så er det kun import-linjerne her der ændres.
+Lagdeling (efter cli-opdelingen, briefs/cli-opdeling.md): importerer fra render-/
+handler-lagene, ikke fra cli — opret-kerner fra wizards, byg-orkestratoren fra byg,
+fil-opdagelse fra indlaes og lftp-quoting fra deploy.
 """
 import argparse
 import subprocess
@@ -26,7 +26,10 @@ from pathlib import Path
 
 import yaml
 
-from .cli import opret_entry, opret_hons_entry, generer_alle, _find_yaml_filer, _lftp_q
+from .wizards import opret_entry, opret_hons_entry
+from .byg import generer_alle
+from .indlaes import _find_yaml_filer
+from .deploy import _lftp_q
 from .config import load_config
 
 _cfg = load_config()
