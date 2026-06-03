@@ -1047,6 +1047,8 @@ td { border: 1px solid var(--kant-lys); padding: 6px 5px; text-align: center; }
 .nabo-gruppe h4 { font-size: var(--tekst-xs); font-weight: 500; color: var(--grå-3); text-transform: uppercase; letter-spacing: 0.02em; margin: 0 0 0.25rem; }
 .nabo-gruppe ul { list-style: none; padding: 0; margin: 0; font-size: var(--tekst-sm); color: var(--grå-1); }
 .nabo-gruppe li { margin-bottom: 0.2rem; }
+.nabo-gruppe a { color: var(--grøn-mørk); text-decoration: none; }
+.nabo-gruppe a:hover { text-decoration: underline; }
 .nabo-note { font-size: var(--tekst-sm); color: var(--grå-3); font-style: italic; }
 .skadedyr-liste { margin-top: 0.5rem; }
 .skadedyr-liste h4 { font-size: var(--tekst-xs); font-weight: 500; color: var(--grå-3); text-transform: uppercase; letter-spacing: 0.02em; margin: 0 0 0.35rem; }
