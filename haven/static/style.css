@@ -1000,6 +1000,31 @@ td { border: 1px solid #e0e0e0; padding: 6px 5px; text-align: center; }
   align-self: baseline;
 }
 
+/* Naboer & skadedyr — accordion i plantekort */
+.plante-naboer-skadedyr { margin-top: 0.5rem; border-top: 1px solid #f0f0f0; padding-top: 0.4rem; }
+.plante-naboer-skadedyr > summary {
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: #999;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+.plante-naboer-skadedyr > summary::-webkit-details-marker { display: none; }
+.plante-naboer-skadedyr > summary::before { content: "▸ "; font-size: 0.65rem; }
+.plante-naboer-skadedyr[open] > summary::before { content: "▾ "; }
+.nabo-grid { display: flex; gap: 1rem; flex-wrap: wrap; margin: 0.5rem 0 0.25rem; }
+.nabo-gruppe h4 { font-size: 0.68rem; font-weight: 500; color: #999; text-transform: uppercase; letter-spacing: 0.02em; margin: 0 0 0.25rem; }
+.nabo-gruppe ul { list-style: none; padding: 0; margin: 0; font-size: 0.78rem; color: #444; }
+.nabo-gruppe li { margin-bottom: 0.2rem; }
+.nabo-note { font-size: 0.72rem; color: #999; font-style: italic; }
+.skadedyr-liste { margin-top: 0.5rem; }
+.skadedyr-liste h4 { font-size: 0.68rem; font-weight: 500; color: #999; text-transform: uppercase; letter-spacing: 0.02em; margin: 0 0 0.35rem; }
+.skadedyr-post { margin-bottom: 0.5rem; font-size: 0.78rem; }
+.skadedyr-post strong { color: #444; }
+.skadedyr-post p { margin: 0.1rem 0 0; color: #555; }
+.skadedyr-forebyggelse { color: #4a7c59; }
+
 /* Breadcrumb / nav */
 .breadcrumb { margin-bottom: 0.5rem; font-size: 0.9rem; }
 .meta-linje { color: #666; font-size: 0.9rem; margin-top: 0.3rem; }
