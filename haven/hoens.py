@@ -96,6 +96,130 @@ def _berig_hons_entry(e: dict) -> dict:
     return e
 
 
+def _æg_oversigt(entries: list, aktive_høner: int = 0) -> "dict | None":
+    """Saml æglægnings-entries til nøgletal + inline SVG-søjlegraf (pr. ISO-uge).
+
+    Returnerer None hvis ingen æglægning er registreret.
+    Output er deterministisk — ingen wall-clock, ingen 'i dag'-markør.
+    """
+    aegl = [e for e in entries if e.get("type") == "æglægning"]
+    if not aegl:
+        return None
+
+    uger: dict = {}          # (iso_år, iso_uge) -> total æg
+    bedste_dato = ""
+    bedste_antal = 0
+    total = 0
+
+    for e in aegl:
+        try:
+            dato = datetime.date.fromisoformat(str(e.get("dato", "")))
+        except ValueError:
+            continue
+        antal = int(e.get("æg", 0) or 0)
+        total += antal
+        if antal > bedste_antal:
+            bedste_antal = antal
+            bedste_dato  = str(e.get("dato", ""))
+        iso = dato.isocalendar()
+        nøgle = (iso[0], iso[1])
+        uger[nøgle] = uger.get(nøgle, 0) + antal
+
+    if not uger:
+        return None
+
+    # Kontinuerligt uge-spænd (huller udfyldes med 0)
+    alle = sorted(uger)
+    cur_år, cur_uge = alle[0]
+    slut_år, slut_uge = alle[-1]
+    uger_data: list[tuple[int, int]] = []     # (uge_nr, antal)
+    while (cur_år, cur_uge) <= (slut_år, slut_uge):
+        uger_data.append((cur_uge, uger.get((cur_år, cur_uge), 0)))
+        næste = (datetime.date.fromisocalendar(cur_år, cur_uge, 1)
+                 + datetime.timedelta(weeks=1))
+        iso = næste.isocalendar()
+        cur_år, cur_uge = iso[0], iso[1]
+
+    antal_uger = len(uger_data)
+    snit = round(total / antal_uger, 1) if antal_uger else 0
+
+    # ── SVG-søjlegraf ─────────────────────────────────────────────────────────
+    W, H    = 400, 90
+    ML, MR  = 32, 6
+    PT, PB  = 8, 16
+    DW = W - ML - MR
+    DH = H - PT - PB
+    y_bot = PT + DH
+
+    max_val = max((a for _, a in uger_data), default=1) or 1
+
+    def nice_step(v):
+        for s in (1, 2, 5, 10, 20, 50, 100):
+            if v <= s * 4:
+                return s
+        return 50
+
+    y_step = nice_step(max_val)
+    y_max  = max(y_step, ((max_val + y_step - 1) // y_step) * y_step)
+
+    def yv(v):
+        return round(PT + (y_max - v) / y_max * DH, 2)
+
+    col = DW / max(antal_uger, 1)
+    bw  = max(round(col * 0.65, 2), 1.0)
+
+    def xc(i):
+        return round(ML + (i + 0.5) * col, 2)
+
+    els: list[str] = []
+
+    # Basislinje + gitterlinjer
+    els.append(f'<line x1="{ML}" y1="{y_bot}" x2="{W - MR}" y2="{y_bot}" '
+               f'stroke="#ccc" stroke-width="0.5"/>')
+    gv = y_step
+    while gv <= y_max:
+        yg = yv(gv)
+        els.append(f'<line x1="{ML}" y1="{yg}" x2="{W - MR}" y2="{yg}" '
+                   f'stroke="#e8e8e8" stroke-width="0.5" stroke-dasharray="2,3"/>')
+        els.append(f'<text x="{ML - 3}" y="{round(yg + 2.5, 2)}" font-size="6.5" '
+                   f'fill="#aaa" text-anchor="end" font-family="sans-serif">{gv}</text>')
+        gv += y_step
+    els.append(f'<text x="{ML - 3}" y="{y_bot}" font-size="6.5" '
+               f'fill="#aaa" text-anchor="end" font-family="sans-serif">0</text>')
+
+    # X-akse: uge-labels (spring over hvis mange uger)
+    lbl_hvert = 1 if antal_uger <= 12 else 2 if antal_uger <= 24 else 4
+    for i, (uge_nr, _) in enumerate(uger_data):
+        if i % lbl_hvert == 0:
+            els.append(f'<text x="{xc(i)}" y="{H - 2}" font-size="6.5" '
+                       f'fill="#aaa" text-anchor="middle" '
+                       f'font-family="sans-serif">U{uge_nr}</text>')
+
+    # Søjler
+    for i, (_, antal) in enumerate(uger_data):
+        if antal <= 0:
+            continue
+        bh = round(antal / y_max * DH, 2)
+        bx = round(xc(i) - bw / 2, 2)
+        els.append(f'<rect x="{bx}" y="{round(y_bot - bh, 2)}" '
+                   f'width="{bw}" height="{bh}" fill="#e8b84b" rx="0.8"/>')
+
+    svg = (f'<svg viewBox="0 0 {W} {H}" xmlns="http://www.w3.org/2000/svg" '
+           f'aria-hidden="true">' + "".join(els) + "</svg>")
+
+    resultat: dict = {
+        "total":       total,
+        "antal_uger":  antal_uger,
+        "snit_pr_uge": snit,
+        "bedste_dato": bedste_dato,
+        "bedste_antal": bedste_antal,
+        "svg":         svg,
+    }
+    if aktive_høner > 0 and antal_uger:
+        resultat["æg_pr_høne_pr_uge"] = round(total / (aktive_høner * antal_uger), 2)
+    return resultat
+
+
 def generer_hons_html(yaml_sti, html_sti, env, nav_context=None, data_mappe_sti=None):
     """Generer en husdyr-zoneside (hønsehus): register + observationslog.
 
@@ -121,6 +245,8 @@ def generer_hons_html(yaml_sti, html_sti, env, nav_context=None, data_mappe_sti=
     entries.sort(key=lambda e: str(e.get("dato", "")), reverse=True)
 
     har_ics = any(e.get("type") == "ruge-start" and e.get("forventet_klæk") for e in entries)
+    aktive  = sum(1 for d in dyr if d.get("aktiv", True))
+    æg_data = _æg_oversigt(entries, aktive)
 
     skabelon = env.get_template("hons.html")
     output = skabelon.render(
@@ -135,6 +261,7 @@ def generer_hons_html(yaml_sti, html_sti, env, nav_context=None, data_mappe_sti=
         entries      = entries,
         har_ics      = har_ics,
         ics_fil      = f"{html_navn}-{AKTIVT_ÅR}.ics",
+        æg_data      = æg_data,
         **(nav_context or {}),
     )
     if skriv_hvis_ændret(html_sti, output):

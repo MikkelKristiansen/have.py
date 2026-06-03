@@ -24,6 +24,12 @@
   .hons-log .foto { margin: .5rem 0 0; }
   .hons-log .foto img { max-width: 240px; width: 100%; border-radius: 8px; display: block; }
   .hons-tom { color: #999; font-style: italic; padding: 1rem 0; }
+  .æg-stats { display: flex; gap: 1rem; flex-wrap: wrap; margin: 1rem 0 1.25rem; }
+  .æg-stat { background: #fff8e1; border-left: 3px solid #e8b84b; padding: .5rem .85rem; border-radius: 0 6px 6px 0; min-width: 9rem; }
+  .æg-stat strong { display: block; font-size: 1.4rem; font-weight: 700; color: #7b5c0d; line-height: 1.1; }
+  .æg-stat span { font-size: .78rem; color: #999; }
+  .æg-graf { margin: .5rem 0 2rem; }
+  .æg-graf svg { width: 100%; max-width: 520px; display: block; }
 </style>
 {% endblock %}
 
@@ -41,6 +47,7 @@
 
 <nav class="intern-nav">
   <a href="#register">🐔 Høne-register</a>
+  {% if æg_data %}<a href="#æg">🥚 Æglægning</a>{% endif %}
   <a href="#log">📋 Observationer</a>
   {% if har_ics %}<a href="{{ rod_sti | default('') }}{{ ics_fil }}">🐣 Klække-kalender (.ics)</a>{% endif %}
 </nav>
@@ -76,6 +83,33 @@
 </table>
 {% else %}
 <p class="hons-tom">Ingen høner registreret endnu. Kør <code>have hons ny-høne</code>.</p>
+{% endif %}
+
+{% if æg_data %}
+<h2 id="æg">Æglægning <em>{{ æg_data.total }} æg i {{ år }}</em></h2>
+<div class="æg-stats">
+  <div class="æg-stat">
+    <strong>{{ æg_data.total }}</strong>
+    <span>æg i alt</span>
+  </div>
+  <div class="æg-stat">
+    <strong>{{ æg_data.snit_pr_uge }}</strong>
+    <span>æg / uge (snit)</span>
+  </div>
+  {% if æg_data.bedste_dato %}
+  <div class="æg-stat">
+    <strong>{{ æg_data.bedste_antal }}</strong>
+    <span>bedste dag ({{ æg_data.bedste_dato | dato_fmt }})</span>
+  </div>
+  {% endif %}
+  {% if æg_data.æg_pr_høne_pr_uge is defined %}
+  <div class="æg-stat">
+    <strong>{{ æg_data.æg_pr_høne_pr_uge }}</strong>
+    <span>æg / høne / uge</span>
+  </div>
+  {% endif %}
+</div>
+<div class="æg-graf">{{ æg_data.svg | safe }}</div>
 {% endif %}
 
 <h2 id="log">Observationer</h2>

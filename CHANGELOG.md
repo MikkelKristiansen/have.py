@@ -5,6 +5,24 @@ Format følger [Keep a Changelog](https://keepachangelog.com/da/1.0.0/).
 
 ## [Unreleased]
 
+## [1.2.0] — 2026-06-03
+
+### Tilføjet
+- **Æglægnings-graf på Hønsehuset** — ugentlige søjler (ISO-uge × antal æg) vises
+  som inline SVG mellem høne-register og observationslog på `hons.html`. Ingen JS,
+  ingen eksterne afhængigheder — deterministisk ren Python, samme mønster som
+  vejr-SVG'erne i almanakken.
+  Nøgletal: total, snit pr. uge, bedste dag og (hvis aktive høner > 0) æg pr. høne pr. uge.
+  Sektionen vises kun når der er registrerede æglægninger.
+- **Frøsamling** — `data/frø.yaml` (rod-niveau, år-uafhængig som `planter.yaml`) med
+  oversigtsside `frø.html`, wizard `have ny-frø` og inbox-understøttelse for
+  `type: frøindkøb`. `have check` validerer blødt. Nav-link vises kun når filen eksisterer.
+- **Naboer og skadedyr i planteregisteret** — nye valgfrie felter `naboer` og `skadedyr`
+  på plante-niveau i `planter.yaml`. Vises i en `<details>`-accordion på hvert plantekort.
+  `have check` advarer blødt ved ukendte nabo-`plante_id`'er.
+- **Naboadvarsler i bed-visningen** — tilstødende zoner med kendte naborelationer vises
+  med grønne/gule badges direkte i bed-layoutet (`have.html`).
+
 ## [1.1.1] — 2026-06-02
 
 ### Tilføjet
