@@ -41,7 +41,7 @@
 
     <header class="plante-navn-linje">
       {% if post._plante %}
-      <h3><a href="{{ jaar_sti | default('') }}planter.html#plante-{{ post.plante_id }}">{{ post.navn }}</a></h3>
+      <h3><a href="{{ op_sti | default('') }}planter.html#plante-{{ post.plante_id }}">{{ post.navn }}</a></h3>
       {% else %}
       <h3>{{ post.navn }}</h3>
       {% endif %}
