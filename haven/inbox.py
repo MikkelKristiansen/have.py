@@ -192,7 +192,7 @@ def opret_frø_fra_inbox(felter: dict, mappe: Path) -> None:
                     img.save(dest, optimize=True)
         except Exception as e:
             print(f"⚠️  Foto ikke optimeret: {e}")
-        foto_sti = f"fotos/frø/{foto_navn}"
+        foto_sti = foto_navn   # kun filnavn — frø.html sætter selv fotos/frø/ (+thumbs/) foran
 
     post: dict = {"navn": felter["navn"]}
     if felter.get("plante_id"):

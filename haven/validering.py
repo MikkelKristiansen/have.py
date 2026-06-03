@@ -16,8 +16,8 @@ from pydantic import ValidationError
 
 from .config import sti, PROJECT_ROOT
 from .kontekst import (
-    _config, PLANTER_FIL, DYR_FIL, FRØ_FIL, SKADEDYR_FIL, DATA_MAPPE, AKTIVT_ÅR,
-    ALMANAK_FIL, ENTRIES_FIL,
+    _config, PLANTER_FIL, DYR_FIL, FRØ_FIL, SKADEDYR_FIL, FOTOS_MAPPE, DATA_MAPPE,
+    AKTIVT_ÅR, ALMANAK_FIL, ENTRIES_FIL,
 )
 from .models import Plante, Høne
 from .indlaes import load_yaml, load_bed_yaml, skriv_hvis_ændret, load_skadedyr
@@ -144,10 +144,11 @@ def valider_frø(frø_data: list, plante_ids: set) -> list:
                 f"— tilføj planten eller fjern plante_id-feltet"))
         foto = post.get("foto")
         if foto and isinstance(foto, str) and not foto.startswith("http"):
-            if not os.path.isfile(foto):
+            # foto er kun filnavnet — fotos/frø/ ligger i skabelonen, ikke i dataene
+            if not (FOTOS_MAPPE / "frø" / foto).is_file():
                 issues.append(("W",
-                    f"frø '{navn}': foto {foto!r} eksisterer ikke "
-                    f"— tilføj filen eller ret foto-feltet"))
+                    f"frø '{navn}': foto {foto!r} findes ikke i fotos/frø/ "
+                    f"— tilføj filen eller ret foto-feltet (kun filnavn, ikke sti)"))
     return issues
 
 

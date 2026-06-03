@@ -30,6 +30,7 @@ haven.yaml
 /data/*
 !/data/eksempel/
 fotos/entries/
+fotos/frø/
 haven.yaml
 
 # === Havebilleder i rod (private) ===
