@@ -3,6 +3,22 @@ from datetime import date
 from pydantic import BaseModel, Field
 
 
+class Nabo(BaseModel):
+    plante_id: str
+    note:      str | None = None
+
+
+class Naboer(BaseModel):
+    gode:     list[Nabo] = []
+    dårlige:  list[Nabo] = []
+
+
+class Skadedyr(BaseModel):
+    navn:        str
+    beskrivelse: str | None = None
+    forebyggelse: str | None = None
+
+
 class FotoModel(BaseModel):
     fil:       str
     kilde:     str | None = None
@@ -31,6 +47,8 @@ class Plante(BaseModel):
     noter:       str | None = None
     pasning:     str | None = None
     foto:        FotoModel | None = None
+    naboer:      Naboer | None = None
+    skadedyr:    list[Skadedyr] = []
 
 
 class Høne(BaseModel):

@@ -47,6 +47,17 @@ def valider_planter(db: dict) -> None:
                 fejl.append((PLANTER_FIL.name, f"{pid}.{loc}: {felt['msg']}"))
     _print_fejl_og_afslut(fejl)
 
+    # Bløde advarsler for ukendte nabo-referencer (ikke fejl — intentionelt)
+    for pid, data in db.items():
+        naboer = data.get("naboer") or {}
+        for retning in ("gode", "dårlige"):
+            for nabo in naboer.get(retning) or []:
+                nabo_id = nabo.get("plante_id", "")
+                if nabo_id and nabo_id not in db:
+                    print(f"[ADVARSEL] {PLANTER_FIL.name}: {pid}.naboer.{retning}: "
+                          f"plante_id {nabo_id!r} ikke fundet i planter.yaml",
+                          file=sys.stderr)
+
 
 def valider_hoenser(db: dict) -> None:
     """L2: Kontrollér at hvert høne-objekt har den form hoenseregisteret.html forventer."""

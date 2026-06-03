@@ -94,6 +94,59 @@
         </dl>
         {% endif %}
 
+        {% set har_gode = p.naboer and p.naboer.gode %}
+        {% set har_dårlige = p.naboer and p.naboer.dårlige %}
+        {% if har_gode or har_dårlige or p.skadedyr %}
+        <details class="plante-naboer-skadedyr">
+          <summary>Naboer &amp; skadedyr</summary>
+
+          {% if har_gode or har_dårlige %}
+          <div class="nabo-grid">
+            {% if har_gode %}
+            <div class="nabo-gruppe">
+              <h4>Gode naboer 👍</h4>
+              <ul>
+                {% for nabo in p.naboer.gode %}
+                <li>
+                  {% if nabo._fundet %}<a href="#plante-{{ nabo.plante_id }}">{{ nabo.display_navn }}</a>{% else %}{{ nabo.display_navn }}{% endif %}
+                  {% if nabo.note %}<br><small class="nabo-note">{{ nabo.note }}</small>{% endif %}
+                </li>
+                {% endfor %}
+              </ul>
+            </div>
+            {% endif %}
+            {% if har_dårlige %}
+            <div class="nabo-gruppe">
+              <h4>Dårlige naboer 👎</h4>
+              <ul>
+                {% for nabo in p.naboer.dårlige %}
+                <li>
+                  {% if nabo._fundet %}<a href="#plante-{{ nabo.plante_id }}">{{ nabo.display_navn }}</a>{% else %}{{ nabo.display_navn }}{% endif %}
+                  {% if nabo.note %}<br><small class="nabo-note">{{ nabo.note }}</small>{% endif %}
+                </li>
+                {% endfor %}
+              </ul>
+            </div>
+            {% endif %}
+          </div>
+          {% endif %}
+
+          {% if p.skadedyr %}
+          <div class="skadedyr-liste">
+            <h4>Skadedyr og sygdomme</h4>
+            {% for s in p.skadedyr %}
+            <div class="skadedyr-post">
+              <strong>{{ s.navn }}</strong>
+              {% if s.beskrivelse %}<p>{{ s.beskrivelse }}</p>{% endif %}
+              {% if s.forebyggelse %}<p class="skadedyr-forebyggelse">🛡 Forebyggelse: {{ s.forebyggelse }}</p>{% endif %}
+            </div>
+            {% endfor %}
+          </div>
+          {% endif %}
+
+        </details>
+        {% endif %}
+
       </div>
     </article>
 

@@ -161,6 +161,41 @@ def generer_index(projekter, index_sti, env, nav_context=None, hero_billede="", 
         print(f"ℹ️  Index uændret: {index_sti}")
 
 
+def _berig_naboer(p: dict) -> dict:
+    """Berig en plante-post med display_navn og _fundet på alle naboer.
+
+    Kopierer posten og naboer-subdict — muterer ikke originalen.
+    Skabelonen behøver ikke selv slå op i PLANTE_DB.
+    """
+    naboer = p.get("naboer")
+    if not naboer:
+        return p
+    p = dict(p)
+
+    def berig_liste(liste):
+        resultat = []
+        for nabo in (liste or []):
+            nabo = dict(nabo)
+            pid = nabo.get("plante_id", "")
+            ref = PLANTE_DB.get(pid, {})
+            if ref:
+                navn = ref.get("navn", pid)
+                sort = ref.get("sort")
+                nabo["display_navn"] = f"{navn} {sort}" if sort else navn
+                nabo["_fundet"] = True
+            else:
+                nabo["display_navn"] = pid
+                nabo["_fundet"] = False
+            resultat.append(nabo)
+        return resultat
+
+    naboer = dict(naboer)
+    naboer["gode"]    = berig_liste(naboer.get("gode",    []))
+    naboer["dårlige"] = berig_liste(naboer.get("dårlige", []))
+    p["naboer"] = naboer
+    return p
+
+
 def generer_planter_oversigt(alle_planter, yaml_filer, planter_sti, env, nav_context=None):
     """Generer planter.html — grupperingen og ikoner afledes fra meta i bed-YAML'erne."""
     id_til_gruppe: dict = {}
@@ -200,7 +235,8 @@ def generer_planter_oversigt(alle_planter, yaml_filer, planter_sti, env, nav_con
     for planter in grupper_dict.values():
         planter.sort(key=lambda p: (p.get("navn", ""), p.get("sort", "")))
     grupper = [
-        {"navn": g, "ikon": gruppe_ikoner.get(g, "🌿"), "url": gruppe_url.get(g, ""), "planter": grupper_dict[g]}
+        {"navn": g, "ikon": gruppe_ikoner.get(g, "🌿"), "url": gruppe_url.get(g, ""),
+         "planter": [_berig_naboer(p) for p in grupper_dict[g]]}
         for g in gruppe_rækkefølge if grupper_dict.get(g)
     ]
     skabelon = env.get_template("planter.html")
