@@ -9,6 +9,26 @@
   --body-pad:  2rem;
   --grøn-1: #1a3a1a; --grøn-2: #2d5a27; --grøn-3: #4a7c59;
   --grøn-4: #a8c5a0; --grøn-5: #e8f5e9; --guld: #c8a96e;
+
+  /* Grå-skala */
+  --grå-1: #444;   /* primær brødtekst-grå */
+  --grå-2: #666;   /* sekundær tekst */
+  --grå-3: #888;   /* dæmpet/metadata */
+  --grå-4: #aaa;   /* meget dæmpet, attribution */
+
+  /* Kanter og baggrunde */
+  --kant-lys:  #e0e0e0;
+  --kant-mørk: rgba(45, 90, 39, 0.15);
+  --bg-lys:    #f8f9f8;
+  --bg-hvid:   #fff;
+
+  /* Typografi-skala */
+  --tekst-xs:  .68rem;   /* labels, metadata, dyrkning-dt */
+  --tekst-sm:  .80rem;   /* sekundær tekst, noter, tags */
+  --tekst-md:  .90rem;   /* brødtekst, undertitler */
+  --tekst-lg:  1.00rem;  /* standard løbende tekst */
+  --tekst-xl:  1.20rem;  /* h2 */
+  --tekst-2xl: 1.30rem;  /* alm-måned-navn, gruppe-overskrift */
 }
 
 /* ── Hero ── */
@@ -38,7 +58,7 @@
 .hero h1 {
   font-family: 'Playfair Display', serif;
   font-size: clamp(2.2rem, 6vw, 3.8rem);
-  color: #fff; font-weight: 400; position: relative;
+  color: var(--bg-hvid); font-weight: 400; position: relative;
 }
 .hero--mini h1 { font-size: clamp(1.6rem, 4vw, 2.5rem); }
 .hero h1 em { color: var(--guld); font-style: italic; }
@@ -69,7 +89,7 @@ h2[id] {
 
 /* ── Site Header ── */
 .site-header {
-  background: #fff;
+  background: var(--bg-hvid);
   border-bottom: 1px solid rgba(45,90,39,.12);
   margin: calc(-1 * var(--body-pad)) calc(-1 * var(--body-pad)) 2rem;
   width: calc(100% + 2 * var(--body-pad));
@@ -92,7 +112,7 @@ h2[id] {
   text-decoration: none;
   color: var(--grøn-mørk);
   font-family: 'Lora', Georgia, serif;
-  font-size: .95rem;
+  font-size: var(--tekst-md);
   font-weight: 600;
   white-space: nowrap;
   margin-right: auto;
@@ -107,9 +127,9 @@ h2[id] {
   gap: 1.5rem;
 }
 .nav-link {
-  color: #555;
+  color: var(--grå-1);
   text-decoration: none;
-  font-size: .8rem;
+  font-size: var(--tekst-sm);
   font-weight: 500;
   letter-spacing: .04em;
   padding: .25rem 0;
@@ -133,7 +153,7 @@ h2[id] {
   gap: .3rem;
 }
 .dropdown-pil {
-  font-size: .65rem;
+  font-size: var(--tekst-xs);
   transition: transform .2s;
   display: inline-block;
 }
@@ -142,7 +162,7 @@ h2[id] {
   position: absolute;
   top: calc(100% + .8rem);
   right: 0;
-  background: #fff;
+  background: var(--bg-hvid);
   border: 1px solid rgba(45,90,39,.12);
   border-radius: 8px;
   box-shadow: 0 8px 24px rgba(0,0,0,.1);
@@ -164,7 +184,7 @@ h2[id] {
   padding: .5rem 1rem;
   color: var(--tekst);
   text-decoration: none;
-  font-size: .82rem;
+  font-size: var(--tekst-sm);
   transition: background .1s;
 }
 .dropdown-item:hover { background: var(--grøn-lys); }
@@ -179,7 +199,7 @@ h2[id] {
   border: 1px solid rgba(45,90,39,.25);
   border-radius: 999px;
   padding: .2rem .65rem;
-  font-size: .78rem;
+  font-size: var(--tekst-sm);
   width: 9rem;
   color: var(--tekst);
   background: #f8faf7;
@@ -194,7 +214,7 @@ h2[id] {
   background: none;
   border: none;
   cursor: pointer;
-  font-size: .9rem;
+  font-size: var(--tekst-md);
   padding: 0 .2rem;
   line-height: 1;
 }
@@ -219,7 +239,7 @@ h2[id] {
     position: absolute;
     top: 54px;
     left: 0; right: 0;
-    background: #fff;
+    background: var(--bg-hvid);
     flex-direction: column;
     align-items: stretch;
     gap: 0;
@@ -239,17 +259,27 @@ h2[id] {
     display: none;
   }
   .nav-dropdown.åben .nav-dropdown-menu { display: block; }
-  .dropdown-item { padding: .5rem 1.5rem .5rem 2.75rem; font-size: .8rem; }
+  .dropdown-item { padding: .5rem 1.5rem .5rem 2.75rem; font-size: var(--tekst-sm); }
   .nav-dropdown:hover .dropdown-pil { transform: none; }
   .nav-dropdown.åben .dropdown-pil { transform: rotate(180deg) !important; }
   .nav-søg { padding: .5rem 1.5rem; }
   .nav-søg-input { width: 100%; }
   .nav-søg-input:focus { width: 100%; }
 }
-h1, h2, h3,
+h1 {
+  font-family: 'Playfair Display', Georgia, serif;
+}
+/* Funktionelle overskrifter — arver system-ui fra body, ikke display-serif */
+h2, h3,
 .alm-måned-navn,
 .gruppe-overskrift,
 .alm-titel {
+  font-weight: 700;
+}
+.site-logo,
+.alm-indledning,
+.alm-indledning-linje,
+.område-beskrivelse {
   font-family: 'Lora', Georgia, serif;
 }
 h1 {
@@ -263,26 +293,26 @@ h1 {
   h1 { font-size: 1.9rem; }
 }
 h2 {
-  font-size: 1.2rem; color: var(--grøn-mørk);
+  font-size: var(--tekst-xl); color: var(--grøn-mørk);
   margin: 2.5rem 0 1rem;
   border-bottom: 1px solid rgba(45, 90, 39, 0.2); padding-bottom: .4rem;
 }
-.undertitel { color: #666; margin-bottom: 2rem; font-size: .9rem; }
+.undertitel { color: var(--grå-2); margin-bottom: 2rem; font-size: var(--tekst-md); }
 
 /* ── Navigation ── */
 nav.tilbage-nav {
-  background: #1a3a1a;
+  background: var(--grøn-1);
   padding: .6rem 1.5rem;
   margin: -2rem -2rem 2rem;
 }
 a.tilbage-link {
-  color: #a8c5a0;
+  color: var(--grøn-4);
   text-decoration: none;
-  font-size: .85rem;
+  font-size: var(--tekst-md);
   font-weight: 500;
   letter-spacing: .04em;
 }
-a.tilbage-link:hover { color: #aaa; }
+a.tilbage-link:hover { color: var(--grå-4); }
 
 nav.intern-nav {
   display: flex; gap: 2rem;
@@ -293,7 +323,7 @@ nav.intern-nav {
 }
 nav.intern-nav a {
   color: var(--grøn-mørk); text-decoration: none;
-  font-size: .8rem; font-weight: 600;
+  font-size: var(--tekst-sm); font-weight: 600;
   padding: .3rem 0;
   border-bottom: 2px solid transparent;
   border-radius: 0;
@@ -317,7 +347,7 @@ nav.intern-nav a.aktiv {
 }
 .område-undertitel {
   margin: 0 0 .25rem;
-  font-size: .95rem;
+  font-size: var(--tekst-md);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: .05em;
@@ -326,8 +356,8 @@ nav.intern-nav a.aktiv {
 .område-beskrivelse {
   font-family: 'Lora', Georgia, serif;
   margin: 0;
-  font-size: .9rem;
-  color: #444;
+  font-size: var(--tekst-md);
+  color: var(--grå-1);
   font-style: italic;
 }
 
@@ -335,7 +365,7 @@ nav.intern-nav a.aktiv {
 .fold-toggle-header { display: flex; align-items: baseline; gap: 1rem; margin-top: 2rem; margin-bottom: .25rem; }
 .fold-toggle-header h2 { margin: 0; flex: 1; }
 .fold-alle-btn {
-  font-size: .72rem; color: var(--grøn-mørk); background: none;
+  font-size: var(--tekst-sm); color: var(--grøn-mørk); background: none;
   border: 1px solid currentColor; border-radius: 3px;
   cursor: pointer; white-space: nowrap; opacity: .6;
   padding: .15rem .55rem; font-family: inherit; line-height: 1.5;
@@ -345,7 +375,7 @@ nav.intern-nav a.aktiv {
 /* ── Bede ── */
 .bede-container { display: flex; flex-direction: column; gap: 1.5rem; }
 .bed-label {
-  font-weight: bold; font-size: .85rem; margin-bottom: 4px;
+  font-weight: bold; font-size: var(--tekst-md); margin-bottom: 4px;
   list-style: none; display: flex; align-items: center; gap: .5rem;
   cursor: pointer; user-select: none;
   padding-bottom: .3rem;
@@ -354,14 +384,14 @@ nav.intern-nav a.aktiv {
 .bed-label::-webkit-details-marker { display: none; }
 .bed-label::before {
   content: '▾';
-  font-size: .8rem; opacity: .5;
+  font-size: var(--tekst-sm); opacity: .5;
   transform: rotate(-90deg);
   transition: transform .2s ease;
   flex-shrink: 0;
 }
 details.bed-wrap[open] > .bed-label::before { transform: rotate(0deg); }
-.bed-mål { font-weight: normal; color: #888; font-size: .8rem; margin-left: auto; }
-.bed-beskrivelse { font-size: .75rem; color: #666; font-style: italic; margin-bottom: 4px; }
+.bed-mål { font-weight: normal; color: var(--grå-3); font-size: var(--tekst-sm); margin-left: auto; }
+.bed-beskrivelse { font-size: var(--tekst-sm); color: var(--grå-2); font-style: italic; margin-bottom: 4px; }
 .bed {
   display: flex; border: 2px solid var(--grøn-mørk);
   border-radius: 3px; overflow: hidden;
@@ -459,19 +489,19 @@ details.bed-wrap[open] > .bed-label::before { transform: rotate(0deg); }
   align-items: center;
   gap: 0.4rem;
   margin-bottom: 1rem;
-  font-size: 0.85rem;
+  font-size: var(--tekst-md);
 }
 .tidsnav-pil {
   background: none;
-  border: 1px solid #ccc;
+  border: 1px solid var(--kant-lys);
   border-radius: 4px;
   padding: 0.15rem 0.55rem;
   cursor: pointer;
-  color: #555;
-  font-size: 0.85rem;
+  color: var(--grå-1);
+  font-size: var(--tekst-md);
   line-height: 1.4;
 }
-.tidsnav-pil:hover { background: #f0f4f0; border-color: #aaa; }
+.tidsnav-pil:hover { background: #f0f4f0; border-color: var(--grå-4); }
 .tidsnav-måned {
   font-weight: 600;
   color: var(--grøn-mørk);
@@ -480,8 +510,8 @@ details.bed-wrap[open] > .bed-label::before { transform: rotate(0deg); }
 }
 .tidsnav-snapshot {
   margin-left: 0.25rem;
-  font-size: 0.75rem;
-  color: #bbb;
+  font-size: var(--tekst-sm);
+  color: var(--grå-4);
   font-style: italic;
 }
 
@@ -500,12 +530,12 @@ details.bed-wrap[open] > .bed-label::before { transform: rotate(0deg); }
   gap: 0.5rem;
   padding: 0.3rem 0.4rem;
   border-radius: 4px;
-  font-size: 0.82rem;
-  color: #777;
+  font-size: var(--tekst-sm);
+  color: var(--grå-2);
 }
 .succession-item.aktiv {
   background: #f1f8e9;
-  color: #1a3a1a;
+  color: var(--grøn-1);
   font-weight: 600;
 }
 .succession-farve {
@@ -516,8 +546,8 @@ details.bed-wrap[open] > .bed-label::before { transform: rotate(0deg); }
   border: 1px solid rgba(0,0,0,0.12);
 }
 .succession-periode {
-  font-size: 0.75rem;
-  color: #aaa;
+  font-size: var(--tekst-sm);
+  color: var(--grå-4);
   min-width: 4.5rem;
   font-variant-numeric: tabular-nums;
 }
@@ -525,12 +555,12 @@ details.bed-wrap[open] > .bed-label::before { transform: rotate(0deg); }
 
 /* ── Kalender ── */
 .kalender-wrap { overflow-x: auto; }
-table { border-collapse: collapse; width: 100%; font-size: .78rem; }
+table { border-collapse: collapse; width: 100%; font-size: var(--tekst-sm); }
 th {
   background: var(--grøn-lys); padding: 7px 5px; text-align: center;
-  font-weight: bold; color: var(--grøn-mørk); border: 1px solid #ccc;
+  font-weight: bold; color: var(--grøn-mørk); border: 1px solid var(--kant-lys);
 }
-td { border: 1px solid #e0e0e0; padding: 6px 5px; text-align: center; }
+td { border: 1px solid var(--kant-lys); padding: 6px 5px; text-align: center; }
 .kal-navn {
   text-align: left; padding-left: 6px; white-space: nowrap;
   font-weight: 500; min-width: 140px;
@@ -538,10 +568,10 @@ td { border: 1px solid #e0e0e0; padding: 6px 5px; text-align: center; }
 .kal-navn a { color: var(--grøn-mørk); text-decoration: none; }
 .kal-navn a:hover { text-decoration: underline; }
 .kal-sort {
-  text-align: left; padding-left: 6px; color: #666;
-  font-size: .72rem; font-style: italic; min-width: 90px;
+  text-align: left; padding-left: 6px; color: var(--grå-2);
+  font-size: var(--tekst-sm); font-style: italic; min-width: 90px;
 }
-.kal-note { text-align: left; padding-left: 6px; color: #666; font-size: .72rem; min-width: 180px; }
+.kal-note { text-align: left; padding-left: 6px; color: var(--grå-2); font-size: var(--tekst-sm); min-width: 180px; }
 .kal-celle { font-size: .7rem; }
 .indendørs  { background: #fff9c4; }
 .udplantning { background: #c8e6c9; }
@@ -550,16 +580,16 @@ td { border: 1px solid #e0e0e0; padding: 6px 5px; text-align: center; }
 .tom        { background: #fafafa; }
 
 /* ── Legende ── */
-.legende { display: flex; gap: 1.5rem; flex-wrap: wrap; margin-bottom: 1rem; font-size: .8rem; }
+.legende { display: flex; gap: 1.5rem; flex-wrap: wrap; margin-bottom: 1rem; font-size: var(--tekst-sm); }
 .leg-item { display: flex; align-items: center; gap: 6px; }
-.leg-farve { width: 18px; height: 14px; border: 1px solid #ccc; border-radius: 2px; }
+.leg-farve { width: 18px; height: 14px; border: 1px solid var(--kant-lys); border-radius: 2px; }
 
 /* ── Almanak ── */
 .alm-entry {
   border-left: 3px solid var(--grøn-mørk);
   padding: 1rem 1.25rem;
   margin-bottom: 2rem;
-  background: #fff;
+  background: var(--bg-hvid);
   border-radius: 0 6px 6px 0;
   box-shadow: 0 1px 4px rgba(0,0,0,.06);
 }
@@ -567,23 +597,23 @@ td { border: 1px solid #e0e0e0; padding: 6px 5px; text-align: center; }
   display: flex; align-items: baseline; gap: .75rem;
   flex-wrap: wrap; margin-bottom: .4rem;
 }
-.alm-dato { font-size: .78rem; color: #888; white-space: nowrap; }
-.alm-titel { font-size: .95rem; font-weight: 600; color: var(--grøn-mørk); }
+.alm-dato { font-size: var(--tekst-sm); color: var(--grå-3); white-space: nowrap; }
+.alm-titel { font-size: var(--tekst-md); font-weight: 700; color: var(--grøn-mørk); }
 .alm-tags { display: flex; gap: .3rem; flex-wrap: wrap; }
 .alm-tag {
   background: var(--grøn-lys); color: var(--grøn-mørk);
-  font-size: .68rem; padding: .1rem .45rem;
+  font-size: var(--tekst-xs); padding: .1rem .45rem;
   border-radius: 999px; border: 1px solid #c8e6c9;
 }
 .alm-tag-plante {
-  background: #e8f5e9; color: #2e7d32;
+  background: #e8f5e9; color: var(--grøn-2);
   border-color: #a5d6a7; font-weight: 500;
   text-decoration: none;
 }
 .alm-tag-plante:hover {
   background: #c8e6c9; border-color: #81c784;
 }
-.alm-tekst p { font-size: .88rem; line-height: 1.6; color: #444; margin-top: .3rem; }
+.alm-tekst p { font-size: var(--tekst-md); line-height: 1.6; color: var(--grå-1); margin-top: .3rem; }
 
 
 
@@ -591,12 +621,12 @@ td { border: 1px solid #e0e0e0; padding: 6px 5px; text-align: center; }
 .alm-måned {
   margin-bottom: 2.5rem;
   padding-bottom: 1.5rem;
-  border-bottom: 1px solid #e0e0e0;
+  border-bottom: 1px solid var(--kant-lys);
 }
 .alm-måned:last-child { border-bottom: none; }
 
 .alm-måned-navn {
-  font-size: 1.3rem;
+  font-size: var(--tekst-2xl);
   font-weight: 700;
   color: var(--grøn-mørk);
   margin-bottom: .5rem;
@@ -616,7 +646,7 @@ td { border: 1px solid #e0e0e0; padding: 6px 5px; text-align: center; }
 .alm-måned-navn::-webkit-details-marker { display: none; }
 .alm-måned-navn::after {
   content: '▾';
-  font-size: 1rem;
+  font-size: var(--tekst-lg);
   opacity: .6;
   transform: rotate(-90deg);
   transition: transform .2s ease;
@@ -627,8 +657,8 @@ td { border: 1px solid #e0e0e0; padding: 6px 5px; text-align: center; }
 }
 .alm-indledning {
   font-family: 'Lora', Georgia, serif;
-  font-size: .88rem;
-  color: #555;
+  font-size: var(--tekst-md);
+  color: var(--grå-1);
   font-style: italic;
   margin: .5rem 0 .75rem;
   line-height: 1.5;
@@ -637,14 +667,14 @@ td { border: 1px solid #e0e0e0; padding: 6px 5px; text-align: center; }
 
 /* Indledninger — stemningsblok */
 .alm-indledninger-blok {
-  background: #f8f9f8;
+  background: var(--bg-lys);
   border-radius: 6px;
   padding: 0.75rem 1rem;
   margin-bottom: 1.25rem;
 }
 .alm-indledning-linje {
-  font-size: 0.85rem;
-  color: #555;
+  font-size: var(--tekst-md);
+  color: var(--grå-1);
   font-style: italic;
   line-height: 1.6;
   margin-bottom: 0.35rem;
@@ -653,9 +683,9 @@ td { border: 1px solid #e0e0e0; padding: 6px 5px; text-align: center; }
 .alm-indledning-kilde {
   font-weight: 700;
   font-style: normal;
-  color: #888;
+  color: var(--grå-3);
   margin-right: 0.5rem;
-  font-size: 0.75rem;
+  font-size: var(--tekst-sm);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
@@ -668,13 +698,13 @@ td { border: 1px solid #e0e0e0; padding: 6px 5px; text-align: center; }
   margin-bottom: 1.25rem;
 }
 .alm-område-gruppe {
-  background: #fff;
-  border: 1px solid #e0e0e0;
+  background: var(--bg-hvid);
+  border: 1px solid var(--kant-lys);
   border-radius: 8px;
   padding: 0.75rem 1rem;
 }
 .alm-område-titel {
-  font-size: 0.85rem;
+  font-size: var(--tekst-md);
   font-weight: 700;
   color: var(--grøn-mørk);
   margin-bottom: 0.5rem;
@@ -687,8 +717,8 @@ td { border: 1px solid #e0e0e0; padding: 6px 5px; text-align: center; }
   margin: 0;
 }
 .alm-opgave-liste li {
-  font-size: 0.82rem;
-  color: #444;
+  font-size: var(--tekst-sm);
+  color: var(--grå-1);
   line-height: 1.5;
   padding: 0.2rem 0 0.2rem 1rem;
   position: relative;
@@ -728,7 +758,7 @@ td { border: 1px solid #e0e0e0; padding: 6px 5px; text-align: center; }
 .alm-foto a:hover img { opacity: .85; }
 .alm-foto figcaption {
   font-size: .7rem;
-  color: #888;
+  color: var(--grå-3);
   margin-top: .3rem;
   text-align: center;
   font-style: italic;
@@ -743,7 +773,7 @@ td { border: 1px solid #e0e0e0; padding: 6px 5px; text-align: center; }
 /* ── Kildeangivelse i samlet almanak ── */
 .alm-kilde-pill {
   display: inline-block;
-  font-size: .68rem;
+  font-size: var(--tekst-xs);
   padding: .1rem .55rem;
   border-radius: 999px;
   font-weight: 600;
@@ -796,11 +826,11 @@ td { border: 1px solid #e0e0e0; padding: 6px 5px; text-align: center; }
   gap: 0.5rem 1.5rem;
   align-items: center;
   padding: 0.6rem 1rem;
-  background: #f8f9fa;
+  background: var(--bg-lys);
   border-radius: 6px;
   margin-bottom: 2rem;
-  font-size: 0.85rem;
-  color: #555;
+  font-size: var(--tekst-md);
+  color: var(--grå-1);
 }
 .kalender-forklaring .celle {
   display: inline-flex;
@@ -809,14 +839,14 @@ td { border: 1px solid #e0e0e0; padding: 6px 5px; text-align: center; }
   width: 2em;
   height: 1.6em;
   border-radius: 3px;
-  font-size: 0.75rem;
+  font-size: var(--tekst-sm);
 }
 
 /* Gruppe-sektioner */
 .plante-gruppe { margin-bottom: 3rem; }
 .gruppe-overskrift {
-  font-size: 1.3rem;
-  border-bottom: 2px solid #e0e0e0;
+  font-size: var(--tekst-2xl);
+  border-bottom: 2px solid var(--kant-lys);
   padding-bottom: 0.4rem;
   margin-bottom: 1.2rem;
 }
@@ -838,10 +868,10 @@ td { border: 1px solid #e0e0e0; padding: 6px 5px; text-align: center; }
 
 /* Enkelt plantkort */
 .plante-kort {
-  border: 1px solid #ddd;
+  border: 1px solid var(--kant-lys);
   border-radius: 8px;
   overflow: hidden;
-  background: #fff;
+  background: var(--bg-hvid);
   display: flex;
   flex-direction: column;
 }
@@ -899,18 +929,18 @@ td { border: 1px solid #e0e0e0; padding: 6px 5px; text-align: center; }
   margin-bottom: 0.5rem;
 }
 .plante-navn-linje h3 {
-  font-size: 1rem;
+  font-size: var(--tekst-lg);
   font-weight: 600;
   margin: 0;
 }
 .plante-sort {
-  font-size: 0.8rem;
-  color: #666;
+  font-size: var(--tekst-sm);
+  color: var(--grå-2);
   font-style: italic;
 }
 .plante-latin {
-  font-size: 0.72rem;
-  color: #999;
+  font-size: var(--tekst-sm);
+  color: var(--grå-3);
   font-style: italic;
   margin: -0.3rem 0 0.5rem;
 }
@@ -948,8 +978,8 @@ td { border: 1px solid #e0e0e0; padding: 6px 5px; text-align: center; }
 
 /* Notetekst */
 .plante-noter {
-  font-size: 0.8rem;
-  color: #555;
+  font-size: var(--tekst-sm);
+  color: var(--grå-1);
   margin: 0 0 0.6rem;
   line-height: 1.5;
 }
@@ -960,15 +990,15 @@ td { border: 1px solid #e0e0e0; padding: 6px 5px; text-align: center; }
 }
 .plante-pasning strong {
   display: block;
-  font-size: 0.68rem;
-  color: #999;
+  font-size: var(--tekst-xs);
+  color: var(--grå-3);
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.02em;
 }
 .plante-pasning p {
-  font-size: 0.8rem;
-  color: #555;
+  font-size: var(--tekst-sm);
+  color: var(--grå-1);
   margin: 0.15rem 0 0;
   line-height: 1.5;
 }
@@ -980,70 +1010,70 @@ td { border: 1px solid #e0e0e0; padding: 6px 5px; text-align: center; }
   gap: 0.2rem 0.5rem;
   margin: 0;
   padding-top: 0.5rem;
-  border-top: 1px solid #f0f0f0;
+  border-top: 1px solid var(--kant-lys);
 }
 .plante-dyrkning div {
   display: contents;
 }
 .plante-dyrkning dt {
-  font-size: 0.68rem;
-  color: #999;
+  font-size: var(--tekst-xs);
+  color: var(--grå-3);
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.02em;
   align-self: baseline;
 }
 .plante-dyrkning dd {
-  font-size: 0.75rem;
-  color: #444;
+  font-size: var(--tekst-sm);
+  color: var(--grå-1);
   margin: 0;
   align-self: baseline;
 }
 
 /* Naboer & skadedyr — accordion i plantekort */
-.plante-naboer-skadedyr { margin-top: 0.5rem; border-top: 1px solid #f0f0f0; padding-top: 0.4rem; }
+.plante-naboer-skadedyr { margin-top: 0.5rem; border-top: 1px solid var(--kant-lys); padding-top: 0.4rem; }
 .plante-naboer-skadedyr > summary {
-  font-size: 0.72rem;
+  font-size: var(--tekst-sm);
   font-weight: 500;
-  color: #999;
+  color: var(--grå-3);
   cursor: pointer;
   list-style: none;
   user-select: none;
 }
 .plante-naboer-skadedyr > summary::-webkit-details-marker { display: none; }
-.plante-naboer-skadedyr > summary::before { content: "▸ "; font-size: 0.65rem; }
+.plante-naboer-skadedyr > summary::before { content: "▸ "; font-size: var(--tekst-xs); }
 .plante-naboer-skadedyr[open] > summary::before { content: "▾ "; }
 .nabo-grid { display: flex; gap: 1rem; flex-wrap: wrap; margin: 0.5rem 0 0.25rem; }
-.nabo-gruppe h4 { font-size: 0.68rem; font-weight: 500; color: #999; text-transform: uppercase; letter-spacing: 0.02em; margin: 0 0 0.25rem; }
-.nabo-gruppe ul { list-style: none; padding: 0; margin: 0; font-size: 0.78rem; color: #444; }
+.nabo-gruppe h4 { font-size: var(--tekst-xs); font-weight: 500; color: var(--grå-3); text-transform: uppercase; letter-spacing: 0.02em; margin: 0 0 0.25rem; }
+.nabo-gruppe ul { list-style: none; padding: 0; margin: 0; font-size: var(--tekst-sm); color: var(--grå-1); }
 .nabo-gruppe li { margin-bottom: 0.2rem; }
-.nabo-note { font-size: 0.72rem; color: #999; font-style: italic; }
+.nabo-note { font-size: var(--tekst-sm); color: var(--grå-3); font-style: italic; }
 .skadedyr-liste { margin-top: 0.5rem; }
-.skadedyr-liste h4 { font-size: 0.68rem; font-weight: 500; color: #999; text-transform: uppercase; letter-spacing: 0.02em; margin: 0 0 0.35rem; }
-.skadedyr-post { margin-bottom: 0.5rem; font-size: 0.78rem; }
-.skadedyr-post strong { color: #444; }
-.skadedyr-post p { margin: 0.1rem 0 0; color: #555; }
-.skadedyr-forebyggelse { color: #4a7c59; }
+.skadedyr-liste h4 { font-size: var(--tekst-xs); font-weight: 500; color: var(--grå-3); text-transform: uppercase; letter-spacing: 0.02em; margin: 0 0 0.35rem; }
+.skadedyr-post { margin-bottom: 0.5rem; font-size: var(--tekst-sm); }
+.skadedyr-post strong { color: var(--grå-1); }
+.skadedyr-post p { margin: 0.1rem 0 0; color: var(--grå-1); }
+.skadedyr-forebyggelse { color: var(--grøn-3); }
 
 /* Breadcrumb / nav */
-.breadcrumb { margin-bottom: 0.5rem; font-size: 0.9rem; }
-.meta-linje { color: #666; font-size: 0.9rem; margin-top: 0.3rem; }
-.meta-linje a { text-decoration: none; color: #4a7c59; }
+.breadcrumb { margin-bottom: 0.5rem; font-size: var(--tekst-md); }
+.meta-linje { color: var(--grå-2); font-size: var(--tekst-md); margin-top: 0.3rem; }
+.meta-linje a { text-decoration: none; color: var(--grøn-3); }
 .meta-linje a:hover { text-decoration: underline; }
 
 /* Print: ét kort pr. linje, ingen billeder */
 @media print {
   .plante-gitter { grid-template-columns: 1fr 1fr; gap: 0.5rem; }
   .plante-foto { display: none; }
-  .plante-kort { border: 1px solid #ccc; break-inside: avoid; }
+  .plante-kort { border: 1px solid var(--kant-lys); break-inside: avoid; }
 }
 
 /* ── Info-sider (om.html, kontakt.html) ── */
 .info-side { max-width: 680px; margin: 2rem auto; }
 .info-side h1 { margin-bottom: 1.5rem; }
-.info-side p { font-size: .95rem; line-height: 1.7; color: #444; margin-bottom: 1rem; }
+.info-side p { font-size: var(--tekst-md); line-height: 1.7; color: var(--grå-1); margin-bottom: 1rem; }
 .kontakt-liste { list-style: none; margin-top: 1.5rem; display: flex; flex-direction: column; gap: .75rem; }
-.kontakt-liste li { display: flex; gap: 1rem; align-items: baseline; font-size: .9rem; }
+.kontakt-liste li { display: flex; gap: 1rem; align-items: baseline; font-size: var(--tekst-md); }
 .kontakt-label { font-weight: 600; color: var(--grøn-mørk); min-width: 80px; }
 .kontakt-liste a { color: var(--grøn-mørk); }
 
@@ -1051,21 +1081,21 @@ td { border: 1px solid #e0e0e0; padding: 6px 5px; text-align: center; }
 .foto-kilde {
   display: block;
   text-align: right;
-  font-size: .65rem;
-  color: #aaa;
+  font-size: var(--tekst-xs);
+  color: var(--grå-4);
   padding: 2px 6px 3px;
   line-height: 1.4;
 }
-.foto-kilde a { color: #aaa; text-decoration: none; }
+.foto-kilde a { color: var(--grå-4); text-decoration: none; }
 .foto-kilde a:hover { text-decoration: underline; }
 
 .attribution {
   margin: 3rem 0 2rem;
   padding-top: 1.5rem;
-  border-top: 1px solid #e0e0e0;
+  border-top: 1px solid var(--kant-lys);
 }
-.attribution-note { font-size: .85rem; color: #666; margin-bottom: 1rem; }
-.attribution-tabel { font-size: .8rem; width: auto; }
+.attribution-note { font-size: var(--tekst-md); color: var(--grå-2); margin-bottom: 1rem; }
+.attribution-tabel { font-size: var(--tekst-sm); width: auto; }
 .attribution-tabel th {
   text-align: left;
   padding: 5px 12px;
@@ -1090,8 +1120,8 @@ td { border: 1px solid #e0e0e0; padding: 6px 5px; text-align: center; }
 .vejr-graf-label {
   width: 110px;
   flex-shrink: 0;
-  font-size: .68rem;
-  color: #888;
+  font-size: var(--tekst-xs);
+  color: var(--grå-3);
   text-align: right;
   padding-top: .35rem;
   line-height: 1.2;
@@ -1111,9 +1141,9 @@ td { border: 1px solid #e0e0e0; padding: 6px 5px; text-align: center; }
   transition: opacity .2s;
 }
 .alm-tag-plante.aktiv-filter {
-  background: #2e7d32;
-  color: #fff;
-  border-color: #1b5e20;
+  background: var(--grøn-2);
+  color: var(--bg-hvid);
+  border-color: var(--grøn-1);
 }
 #alm-filter-status {
   display: flex;
@@ -1124,7 +1154,7 @@ td { border: 1px solid #e0e0e0; padding: 6px 5px; text-align: center; }
   border: 1px solid #c5e1a5;
   border-radius: 8px;
   margin-bottom: 1.25rem;
-  font-size: .85rem;
+  font-size: var(--tekst-md);
 }
 #alm-filter-nulstil {
   background: none;
@@ -1132,8 +1162,8 @@ td { border: 1px solid #e0e0e0; padding: 6px 5px; text-align: center; }
   border-radius: 999px;
   padding: .15rem .6rem;
   cursor: pointer;
-  color: #2e7d32;
-  font-size: .8rem;
+  color: var(--grøn-2);
+  font-size: var(--tekst-sm);
 }
 #alm-filter-nulstil:hover {
   background: #c5e1a5;
@@ -1145,11 +1175,11 @@ td { border: 1px solid #e0e0e0; padding: 6px 5px; text-align: center; }
   padding: .5rem .75rem; margin: .4rem 0;
 }
 .nabo-advarsel {
-  font-size: .82rem; padding: .3rem .65rem;
+  font-size: var(--tekst-sm); padding: .3rem .65rem;
   border-radius: 5px; border-left: 3px solid transparent;
 }
 .nabo-advarsel--god {
-  background: #f1f8e9; border-color: #81c784; color: #2e7d32;
+  background: #f1f8e9; border-color: #81c784; color: var(--grøn-2);
 }
 .nabo-advarsel--dårlig {
   background: #fff8e1; border-color: #ffb300; color: #5d4037;
