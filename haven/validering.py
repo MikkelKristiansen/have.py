@@ -17,10 +17,13 @@ from pydantic import ValidationError
 from .config import sti, PROJECT_ROOT
 from .kontekst import (
     _config, PLANTER_FIL, DYR_FIL, FRØ_FIL, SKADEDYR_FIL, FOTOS_MAPPE, DATA_MAPPE,
-    AKTIVT_ÅR, ALMANAK_FIL, ENTRIES_FIL,
+    AKTIVT_ÅR, ALMANAK_FIL, ENTRIES_FIL, ROTATION_CYKLUS, TUNGE_FAMILIER, PLANTE_DB,
 )
 from .models import Plante, Høne
-from .indlaes import load_yaml, load_bed_yaml, skriv_hvis_ændret, load_skadedyr
+from .indlaes import (
+    load_yaml, load_bed_yaml, skriv_hvis_ændret, load_skadedyr,
+    find_dominerende_familier,
+)
 
 __all__ = [
     "valider_planter", "valider_hoenser", "valider_referencer", "valider_frø",
@@ -492,7 +495,34 @@ def check(yaml_filer, strict=False, farver=False):
         if not issues:
             OK(f"{len(skadedyr_db)} skadedyr — referencer og familier ok")
 
-    # ── 7. Farvetabel (kun ved --farver) ───────────────────────────────────────
+    # ── 7. Sædskifte (kun hvis rotation.cyklus er sat) ──────────────────────────
+    if ROTATION_CYKLUS:
+        print(f"\n🔍 7. Sædskifte\n")
+        if not PLANTE_DB:
+            PLANTE_DB.update({p["id"]: p for p in alle_planter if p.get("id")})
+        data_rod = DATA_MAPPE.parent
+        tidligere = sorted(
+            (int(p.name) for p in data_rod.iterdir()
+             if p.is_dir() and p.name.isdigit() and int(p.name) < AKTIVT_ÅR),
+            reverse=True,
+        ) if data_rod.is_dir() else []
+        if not tidligere:
+            OK("Ingen tidligere år at sammenligne med — sædskifte kan ikke vurderes endnu")
+        else:
+            forrige_år = tidligere[0]
+            gengangere = 0
+            for i, bed_navn in enumerate(ROTATION_CYKLUS):
+                iår   = find_dominerende_familier(AKTIVT_ÅR, bed_navn) & set(TUNGE_FAMILIER)
+                ifjor = find_dominerende_familier(forrige_år, bed_navn) & set(TUNGE_FAMILIER)
+                for familie in sorted(iår & ifjor):
+                    næste = ROTATION_CYKLUS[(i + 1) % len(ROTATION_CYKLUS)]
+                    W(f"{familie} ({TUNGE_FAMILIER[familie]}) er i {bed_navn} både i "
+                      f"{forrige_år} og {AKTIVT_ÅR} — rotér til næste bed i cyklussen ({næste})")
+                    gengangere += 1
+            if gengangere == 0:
+                OK(f"Ingen tunge familier går igen i samme bed ({forrige_år}→{AKTIVT_ÅR})")
+
+    # ── 8. Farvetabel (kun ved --farver) ───────────────────────────────────────
     if farver:
         print(f"\n🔍 Farver\n")
         print(f"  {'Plante':<25} {'Sort':<20} Farve")

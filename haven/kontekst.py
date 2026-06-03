@@ -13,7 +13,7 @@ import sys
 
 from .config import (
     load_config, data_mappe, out_mappe, sti,
-    sftp_adgangskode, ftp_adgangskode,
+    sftp_adgangskode, ftp_adgangskode, rotation_cyklus,
 )
 
 _config = load_config()
@@ -72,6 +72,15 @@ FTP_HOST   = _ftp.get("host", "")
 FTP_BRUGER = _ftp.get("bruger", "")
 FTP_MAPPE  = _ftp.get("mappe", "")
 FTP_KODE   = ftp_adgangskode()
+
+# ── Sædskifte ────────────────────────────────────────────────────────────────
+# rotation.cyklus i haven.yaml: bede i rotationsrækkefølge (cirkulær). Tom = slået fra.
+ROTATION_CYKLUS = rotation_cyklus(_config)
+# Tunge familier der ikke bør gå igen i samme bed to år i træk → dansk etiket.
+TUNGE_FAMILIER = {
+    "Solanaceae":   "kartofler/tomater",
+    "Brassicaceae": "kål",
+}
 
 MÅNEDER      = ["Jan","Feb","Mar","Apr","Maj","Jun","Jul","Aug","Sep","Okt","Nov","Dec"]
 MÅNEDER_LANG = ["januar","februar","marts","april","maj","juni",

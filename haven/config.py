@@ -37,6 +37,11 @@ def sti(config: dict, navn: str) -> Path:
     return PROJECT_ROOT / config["stier"][navn]
 
 
+def rotation_cyklus(config: dict) -> list:
+    """Bede i sædskifte-rækkefølge (rotation.cyklus). Tom liste hvis ikke sat."""
+    return (config.get("rotation") or {}).get("cyklus") or []
+
+
 def sftp_adgangskode() -> str:
     return os.environ.get("HAVE_SFTP_KODE", "")
 

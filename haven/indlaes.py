@@ -27,6 +27,7 @@ __all__ = [
     "load_yaml", "normaliser_bed_data", "load_bed_yaml", "skriv_hvis_ændret",
     "byg_plante_db", "byg_dyr_db", "load_frø", "opslag_plante", "berig_kalender_planter",
     "load_skadedyr", "byg_skadedyr_db", "skadedyr_for_plante",
+    "find_dominerende_familier",
     "_dyr_label", "_slug", "slugify", "plante_id",
     "_find_yaml_filer", "_les_entries_mappe",
 ]
@@ -165,6 +166,30 @@ def byg_dyr_db(sti: Path = DYR_FIL) -> dict:
         else:
             print(f"[ADVARSEL] Dyr uden id: {d.get('race', '?')}", file=sys.stderr)
     return db
+
+
+def find_dominerende_familier(år: int, bed_navn: str) -> set[str]:
+    """Plantefamilier der forekommer i data/{år}/{bed_navn}.yaml.
+
+    Slår hver afgrødes plante_id op i PLANTE_DB og samler familie-felterne.
+    Tom mængde hvis filen ikke findes eller ingen kendte familier (bruges til
+    sædskifteforslag — derfor ingen advarsler ved ukendte id'er).
+    """
+    sti = DATA_MAPPE.parent / str(år) / f"{bed_navn}.yaml"
+    if not sti.exists():
+        return set()
+    data = load_bed_yaml(sti)
+    familier: set = set()
+    for bed in data.get("bede", []):
+        for zone in bed.get("zoner", []):
+            for afgrøde in zone.get("afgrøder", []):
+                pid = afgrøde.get("plante_id")
+                if not pid:
+                    continue
+                fam = (PLANTE_DB.get(pid) or {}).get("familie")
+                if fam:
+                    familier.add(fam)
+    return familier
 
 
 def load_frø() -> tuple[list, list]:

@@ -352,7 +352,49 @@ def nyt_år(nyt_år_num: int):
     print(f"  📁 {fotos_mappe}/ oprettet")
 
     print(f"\n✅ {til_mappe}/ klar til sæson {nyt_år_num}")
+
+    # ── Sædskifteforslag (valgfrit — kun hvis rotation.cyklus er sat) ──────────
+    _sædskifteforslag(tidligere_år[0], nyt_år_num)
+
     print(f"\nNæste skridt: Sæt aktivt_år: {nyt_år_num} i haven.yaml og rediger dine bede-filer")
+
+
+def _sædskifteforslag(kilde_år: int, nyt_år_num: int) -> None:
+    """Rådgiv om sædskifte for tunge familier efter nyt-år-kopieringen.
+
+    Læser kilde-årets bede, finder hvilke der har Solanaceae/Brassicaceae, og
+    foreslår det næste bed i rotation.cyklus. Ingen ændringer i YAML — kun råd.
+    Springes stille over hvis rotation.cyklus ikke er sat i haven.yaml.
+    """
+    if not ROTATION_CYKLUS:
+        return
+    import questionary
+    if not PLANTE_DB:
+        PLANTE_DB.update(byg_plante_db())
+
+    forslag = []
+    for i, bed_navn in enumerate(ROTATION_CYKLUS):
+        tunge = find_dominerende_familier(kilde_år, bed_navn) & set(TUNGE_FAMILIER)
+        if tunge:
+            næste_bed = ROTATION_CYKLUS[(i + 1) % len(ROTATION_CYKLUS)]
+            for familie in sorted(tunge):
+                forslag.append((familie, bed_navn, næste_bed))
+    if not forslag:
+        return
+
+    linje = "─" * 43
+    print(f"\n{linje}")
+    print(f"  Sædskifteforslag for {nyt_år_num}")
+    print(linje)
+    for familie, bed_navn, næste_bed in forslag:
+        print(f"  {familie} ({TUNGE_FAMILIER[familie]}) er i {bed_navn} i {kilde_år}.")
+        print(f"  → Anbefalet bed i {nyt_år_num}: {næste_bed}\n")
+    print(linje)
+    print("  Husk at opdatere dine bed-YAML'er manuelt.")
+    print("  have check vil advare hvis de tunge familier")
+    print("  forbliver i samme bed to år i træk.")
+    print(linje)
+    questionary.press_any_key_to_continue("Tryk Enter for at fortsætte …").ask()
 
 
 def opret_entry(dato: str, zone: str, tekst: str,
