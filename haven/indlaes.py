@@ -19,12 +19,12 @@ from pathlib import Path
 import yaml
 
 from .kontekst import (
-    PLANTER_FIL, DYR_FIL, PLANTE_DB, DATA_MAPPE, YAML_FILER_DEFAULT,
+    PLANTER_FIL, DYR_FIL, FRØ_FIL, PLANTE_DB, DATA_MAPPE, YAML_FILER_DEFAULT,
 )
 
 __all__ = [
     "load_yaml", "normaliser_bed_data", "load_bed_yaml", "skriv_hvis_ændret",
-    "byg_plante_db", "byg_dyr_db", "opslag_plante", "berig_kalender_planter",
+    "byg_plante_db", "byg_dyr_db", "load_frø", "opslag_plante", "berig_kalender_planter",
     "_dyr_label", "_slug", "slugify", "plante_id",
     "_find_yaml_filer", "_les_entries_mappe",
 ]
@@ -163,6 +163,21 @@ def byg_dyr_db(sti: Path = DYR_FIL) -> dict:
         else:
             print(f"[ADVARSEL] Dyr uden id: {d.get('race', '?')}", file=sys.stderr)
     return db
+
+
+def load_frø() -> tuple[list, list]:
+    """Returnerer (aktive, arkiverede) frøposter fra data/frø.yaml.
+
+    Returnerer to tomme lister hvis filen mangler — frøsamlingen er valgfri.
+    Aktive = rest != 'tom'; arkiverede = rest == 'tom'.
+    """
+    if not FRØ_FIL.exists():
+        return [], []
+    data = load_yaml(FRØ_FIL)
+    alle = data.get("frø") or []
+    aktive     = [f for f in alle if str(f.get("rest", "")) != "tom"]
+    arkiverede = [f for f in alle if str(f.get("rest", "")) == "tom"]
+    return aktive, arkiverede
 
 
 def _dyr_label(d: dict) -> str:

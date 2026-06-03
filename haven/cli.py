@@ -33,7 +33,7 @@ from .vejr import hent_vejr
 from .wizards import (
     init_projekt, nyt_område, nyt_år, ny_entry, ny_plante, ret_i_plante_yaml,
     nyt_bed, plant_en_plante, riv_en_plante_op, ret_en_plante, ret_bed,
-    hons_ny_høne, hons_ny_obs,
+    hons_ny_høne, hons_ny_obs, wizard_ny_frø,
 )
 
 
@@ -137,6 +137,9 @@ def main():
 
     subparsers.add_parser("ret-bed", help="Omfordel zone-bredder og tilføj nye zoner med ratio (interaktiv wizard)")
 
+    # Subkommando: ny-frø
+    subparsers.add_parser("ny-frø", help="Tilføj ny frøpost til data/frø.yaml (interaktiv wizard)")
+
     # Subkommando: hons — hønsemodul med underkommandoer
     hons_parser = subparsers.add_parser("hons", help="Hønsemodul — observationer og dyreregister")
     hons_sub = hons_parser.add_subparsers(dest="hons_kommando")
@@ -209,6 +212,10 @@ def main():
 
     if args.kommando == "ret-i-plante-yaml":
         ret_i_plante_yaml()
+        sys.exit(0)
+
+    if args.kommando == "ny-frø":
+        wizard_ny_frø()
         sys.exit(0)
 
     if args.kommando == "nyt-bed":

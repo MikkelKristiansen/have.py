@@ -180,12 +180,15 @@ def generer_alle(yaml_filer=None) -> list:
         if d.isdigit() and os.path.isdir(os.path.join(_data_basis, d))
     ]) if os.path.isdir(_data_basis) else [AKTIVT_ÅR]
 
+    from .kontekst import FRØ_FIL
+    har_frø = FRØ_FIL.exists()
+
     def nav_ctx(aktiv_side="", op_sti="../", jaar_sti=""):
         return {"nav_bede": nav_bede, "nav_dyr": nav_dyr, "have_navn": have_navn,
                 "aktiv_side": aktiv_side,
                 "features": _config.get("features", {}), "år_liste": år_liste,
                 "aktivt_år": AKTIVT_ÅR, "op_sti": op_sti, "jaar_sti": jaar_sti,
-                "har_høns": bool(DYR_DB)}
+                "har_høns": bool(DYR_DB), "har_frø": har_frø}
     # ─────────────────────────────────────────────────────────────────────────
 
     for yaml_sti in yaml_filer:
@@ -243,6 +246,18 @@ def generer_alle(yaml_filer=None) -> list:
         # Ryd forældede årskopier (registret bor i roden, ikke pr. år)
         for _gl_år in år_liste:
             _stale = OUT_MAPPE.parent / str(_gl_år) / "hoenseregisteret.html"
+            if _stale.exists():
+                _stale.unlink()
+                print(f"🗑  Fjernet forældet: {_stale}")
+
+    # Frøsamling — delt på tværs af år (rod-niveau som planter.html)
+    if har_frø:
+        frø_sti = os.path.join(str(OUT_MAPPE.parent), "frø.html")
+        generer_frø_oversigt(frø_sti, env,
+                             nav_context=nav_ctx("frø", op_sti="", jaar_sti=f"{AKTIVT_ÅR}/"))
+        upload_filer.append((frø_sti, "frø.html"))
+        for _gl_år in år_liste:
+            _stale = OUT_MAPPE.parent / str(_gl_år) / "frø.html"
             if _stale.exists():
                 _stale.unlink()
                 print(f"🗑  Fjernet forældet: {_stale}")
@@ -344,6 +359,23 @@ def generer_alle(yaml_filer=None) -> list:
                 if _stale_planter.exists():
                     shutil.rmtree(_stale_planter)
                     print(f"🗑  Fjernet forældet: {_stale_planter}")
+
+        # Frøfotos er tidløse — kopieres til out/fotos/frø/ (rod-niveau)
+        frø_kilde = fotos_basis / "frø"
+        if frø_kilde.exists():
+            frø_dest = OUT_MAPPE.parent / "fotos" / "frø"
+            _generer_manglende_thumbnails(frø_kilde)
+            n = _sync_mappe(frø_kilde, frø_dest)
+            _generer_manglende_thumbnails(frø_dest)
+            if n > 0:
+                print(f"✅ Frøfotos synkroniseret: {n} filer → {frø_dest}")
+            else:
+                print(f"ℹ️  Frøfotos uændrede: {frø_dest}")
+            for _gl_år in år_liste:
+                _stale_frø = OUT_MAPPE.parent / str(_gl_år) / "fotos" / "frø"
+                if _stale_frø.exists():
+                    shutil.rmtree(_stale_frø)
+                    print(f"🗑  Fjernet forældet: {_stale_frø}")
 
         # Hønsefotos er tidløse — kopieres til out/fotos/dyr/ (rod-niveau)
         dyr_kilde = fotos_basis / "dyr"

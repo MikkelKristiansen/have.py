@@ -24,6 +24,9 @@
     <nav class="hoved-nav" id="hoved-nav">
       <a href="{{ jaar_sti | default('') }}index.html" class="nav-link{% if aktiv_side | default('') == 'hjem' %} aktiv{% endif %}">Hjem</a>
       <a href="{{ op_sti | default('../') }}planter.html" class="nav-link{% if aktiv_side | default('') == 'planter' %} aktiv{% endif %}">Planter</a>
+      {% if har_frø | default(false) %}
+      <a href="{{ op_sti | default('../') }}frø.html" class="nav-link{% if aktiv_side | default('') == 'frø' %} aktiv{% endif %}">🌱 Frøsamling</a>
+      {% endif %}
       {% if nav_bede | default([]) %}
       <div class="nav-dropdown" id="bede-dropdown">
         <span class="nav-link nav-dropdown-toggle{% if aktiv_side | default('') in bede_ids %} aktiv{% endif %}">

@@ -28,9 +28,9 @@ import yaml
 
 from .wizards import opret_entry, opret_hons_entry
 from .byg import generer_alle
-from .indlaes import _find_yaml_filer
+from .indlaes import _find_yaml_filer, slugify
 from .deploy import _lftp_q
-from .config import load_config
+from .config import load_config, PROJECT_ROOT
 
 _cfg = load_config()
 _inbox = _cfg.get("inbox", {}) or {}
@@ -133,7 +133,91 @@ def _læs_entry(mappe: Path):
         return {"kind": "hons", "dato": str(dato), "hons_type": hons_type,
                 "høne": høne, "noter": tekst, "ekstra": ekstra, "foto_kilde": foto_kilde}, None
 
+    if typ == "frøindkøb":
+        navn = (data.get("navn") or "").strip()
+        if not navn:
+            return None, "frøindkøb mangler navn"
+        return {"kind": "frø", "foto_kilde": foto_kilde,
+                "navn": navn,
+                "sort":      data.get("sort") or None,
+                "plante_id": data.get("plante_id") or None,
+                "firma":     data.get("firma") or None,
+                "kilde":     data.get("kilde") or None,
+                "år":        data.get("år") or None,
+                "bedst_før": data.get("bedst_før") or None,
+                "rest":      str(data.get("rest") or "fuld"),
+                "pris":      data.get("pris") or None,
+                "noter":     (data.get("noter") or "").strip() or None,
+                }, None
+
     return None, f"type {typ!r} understøttes ikke"
+
+
+def opret_frø_fra_inbox(felter: dict, mappe: Path) -> None:
+    """Importér et frøindkøb fra inbox til data/frø.yaml.
+
+    Kopierer første billede til fotos/frø/, optimerer det og sætter foto-feltet.
+    Appender posten til data/frø.yaml via ruamel.yaml (bevarer kommentarer).
+    """
+    import shutil
+    from ruamel.yaml import YAML
+    from io import StringIO
+    from .kontekst import FRØ_FIL
+
+    frø_fotos = PROJECT_ROOT / "fotos" / "frø"
+    foto_sti = None
+
+    if felter.get("foto_kilde"):
+        frø_fotos.mkdir(parents=True, exist_ok=True)
+        navn_slug = slugify(felter.get("navn", "") or "")
+        sort_slug = slugify(felter.get("sort", "") or "")
+        basis = f"{navn_slug}-{sort_slug}" if sort_slug else navn_slug
+        kilde = Path(felter["foto_kilde"])
+        ext = kilde.suffix.lower() or ".jpg"
+        foto_navn = f"{basis}{ext}"
+        n = 2
+        while (frø_fotos / foto_navn).exists():
+            foto_navn = f"{basis}-{n}{ext}"
+            n += 1
+        dest = frø_fotos / foto_navn
+        shutil.copy2(kilde, dest)
+        try:
+            from PIL import Image, ImageOps
+            with Image.open(dest) as img:
+                img = ImageOps.exif_transpose(img)
+                img.thumbnail((1200, 1200))
+                if dest.suffix.lower() in (".jpg", ".jpeg"):
+                    img.save(dest, "JPEG", quality=85, optimize=True)
+                else:
+                    img.save(dest, optimize=True)
+        except Exception as e:
+            print(f"⚠️  Foto ikke optimeret: {e}")
+        foto_sti = f"fotos/frø/{foto_navn}"
+
+    post: dict = {"navn": felter["navn"]}
+    if felter.get("plante_id"):
+        post = {"plante_id": felter["plante_id"], **post}
+    for felt in ("sort", "firma", "kilde", "år", "bedst_før", "rest", "pris", "noter"):
+        v = felter.get(felt)
+        if v is not None:
+            post[felt] = v
+    if foto_sti:
+        post["foto"] = foto_sti
+
+    ryaml = YAML()
+    ryaml.preserve_quotes = True
+    if FRØ_FIL.exists():
+        data = ryaml.load(FRØ_FIL.read_text(encoding="utf-8")) or {}
+    else:
+        data = {}
+    if "frø" not in data or data["frø"] is None:
+        data["frø"] = []
+    data["frø"].append(post)
+
+    buf = StringIO()
+    ryaml.dump(data, buf)
+    FRØ_FIL.write_text(buf.getvalue(), encoding="utf-8")
+    print(f"      → {_rel(FRØ_FIL)}")
 
 
 def _rel(sti) -> str:
@@ -152,6 +236,17 @@ def behandl(lokal: Path, skriv: bool) -> list[str]:
             print(f"  ⚠️  {mappe.name}: {fejl} — springer over")
             continue
         flag = " + foto" if felter["foto_kilde"] else ""
+
+        if felter["kind"] == "frø":
+            display = felter["navn"]
+            if felter.get("sort"):
+                display += f" {felter['sort']}"
+            flag = " + foto" if felter["foto_kilde"] else ""
+            print(f"  • [frøindkøb] {display}{flag}")
+            if skriv:
+                opret_frø_fra_inbox(felter, mappe)
+            behandlede.append(mappe.name)
+            continue
 
         if felter["kind"] == "dagbog":
             uddrag = felter["tekst"].splitlines()[0][:60]

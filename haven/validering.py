@@ -16,13 +16,13 @@ from pydantic import ValidationError
 
 from .config import sti, PROJECT_ROOT
 from .kontekst import (
-    _config, PLANTER_FIL, DYR_FIL, DATA_MAPPE, AKTIVT_ÅR, ALMANAK_FIL, ENTRIES_FIL,
+    _config, PLANTER_FIL, DYR_FIL, FRØ_FIL, DATA_MAPPE, AKTIVT_ÅR, ALMANAK_FIL, ENTRIES_FIL,
 )
 from .models import Plante, Høne
 from .indlaes import load_yaml, load_bed_yaml, skriv_hvis_ændret
 
 __all__ = [
-    "valider_planter", "valider_hoenser", "valider_referencer",
+    "valider_planter", "valider_hoenser", "valider_referencer", "valider_frø",
     "check", "opdater_schema_plante_ids", "opdater_schema_planter",
 ]
 
@@ -111,6 +111,31 @@ def valider_referencer(db: dict, bede_yaml_filer: list) -> None:
                 f"{pid}.foto.fil: {fil_val!r} findes ikke i fotos/planter/"))
 
     _print_fejl_og_afslut(fejl)
+
+
+# ── Frøsamling ─────────────────────────────────────────────────────────────────
+
+def valider_frø(frø_data: list, plante_ids: set) -> list:
+    """Blød validering af frøposter. Returnerer liste af (niveau, besked)-tupler.
+
+    niveau er 'W' (advarsel). Ingen 'E'-fejl fra frø — manglende plante_id og
+    foto er altid bløde advarsler, aldrig showstoppere.
+    """
+    issues = []
+    for i, post in enumerate(frø_data):
+        navn = post.get("navn") or f"[{i}]"
+        pid  = post.get("plante_id")
+        if pid and pid not in plante_ids:
+            issues.append(("W",
+                f"frø '{navn}': plante_id {pid!r} ikke fundet i planter.yaml "
+                f"— tilføj planten eller fjern plante_id-feltet"))
+        foto = post.get("foto")
+        if foto and isinstance(foto, str) and not foto.startswith("http"):
+            if not os.path.isfile(foto):
+                issues.append(("W",
+                    f"frø '{navn}': foto {foto!r} eksisterer ikke "
+                    f"— tilføj filen eller ret foto-feltet"))
+    return issues
 
 
 # ── Hjælpefunktioner ───────────────────────────────────────────────────────────
@@ -389,7 +414,23 @@ def check(yaml_filer, strict=False, farver=False):
         else:
             OK(f"{len(entries)} entries — alle område_id'er kendte")
 
-    # ── 5. Farvetabel (kun ved --farver) ───────────────────────────────────────
+    # ── 5. frø.yaml ───────────────────────────────────────────────────────────
+    if os.path.isfile(FRØ_FIL):
+        print(f"\n🔍 5. frø.yaml\n")
+        frø_rå = load_yaml(FRØ_FIL)
+        alle_frø = frø_rå.get("frø") or []
+        aktive_frø     = [f for f in alle_frø if str(f.get("rest", "")) != "tom"]
+        arkiverede_frø = [f for f in alle_frø if str(f.get("rest", "")) == "tom"]
+        issues = valider_frø(alle_frø, plante_ids_db)
+        for niveau, besked in issues:
+            if niveau == "E":
+                E(besked)
+            else:
+                W(besked)
+        if not issues:
+            OK(f"{len(aktive_frø)} aktive frøposter, {len(arkiverede_frø)} arkiverede — ok")
+
+    # ── 6. Farvetabel (kun ved --farver) ───────────────────────────────────────
     if farver:
         print(f"\n🔍 Farver\n")
         print(f"  {'Plante':<25} {'Sort':<20} Farve")

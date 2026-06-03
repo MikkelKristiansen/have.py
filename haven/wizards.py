@@ -36,6 +36,7 @@ __all__ = [
     "opret_plante", "ny_plante", "ret_i_plante_yaml", "nyt_bed",
     "hons_ny_høne", "hons_ny_obs", "plant_en_plante",
     "riv_en_plante_op", "ret_en_plante", "ret_bed",
+    "wizard_ny_frø",
 ]
 
 
@@ -2822,4 +2823,120 @@ def ret_bed():
     print(f"✅ '{valgt_bed.get('navn', valgt_bed_id)}' opdateret")
     if nye_zoner:
         print(f"   {len(nye_zoner)} ny{'e' if len(nye_zoner) > 1 else ''} zone{'r' if len(nye_zoner) > 1 else ''} tilføjet")
+
+
+def wizard_ny_frø():
+    """Interaktiv wizard til at oprette en ny frøpost i data/frø.yaml."""
+    import questionary
+    from ruamel.yaml import YAML
+    from io import StringIO
+    from .kontekst import FRØ_FIL
+
+    db = byg_plante_db(PLANTER_FIL)
+    kendte_ids = sorted(db.keys())
+
+    i_år = datetime.date.today().year
+
+    # ── 1. plante_id (valgfri) ────────────────────────────────────────────────
+    pid_svar = questionary.autocomplete(
+        "Plante-id (valgfri — Enter = spring over):",
+        choices=[""] + kendte_ids,
+        default="",
+    ).ask()
+    pid = (pid_svar or "").strip() or None
+
+    # ── 2. navn ───────────────────────────────────────────────────────────────
+    default_navn = db[pid].get("navn", pid) if pid and pid in db else ""
+    navn = (questionary.text(
+        "Navn (fx 'Gulerod'):",
+        default=default_navn,
+        validate=lambda v: bool(v.strip()) or "Navn er påkrævet",
+    ).ask() or "").strip()
+    if not navn:
+        sys.exit(0)
+
+    # ── 3. sort ───────────────────────────────────────────────────────────────
+    default_sort = db[pid].get("sort", "") if pid and pid in db else ""
+    sort = (questionary.text(
+        "Sort (fx 'Nantes 2', Enter = ingen):",
+        default=default_sort or "",
+    ).ask() or "").strip() or None
+
+    # ── 4. kilde ─────────────────────────────────────────────────────────────
+    kilde_type = questionary.select(
+        "Hvorfra kommer frøet?",
+        choices=["Firma/butik", "Egenindsamlet/byttet/andet"],
+    ).ask()
+    firma = None
+    kilde = None
+    if kilde_type and "Firma" in kilde_type:
+        firma = (questionary.text("Firmanavn (fx 'Frøsamlerne'):").ask() or "").strip() or None
+    else:
+        kilde = (questionary.text("Kilde (fx 'egenindsamlet', 'byttet'):").ask() or "").strip() or None
+
+    # ── 5. år ────────────────────────────────────────────────────────────────
+    år_svar = questionary.text(
+        "År (købt/høstet):",
+        default=str(i_år),
+        validate=lambda v: v.strip().isdigit() or "Skriv et årstal",
+    ).ask()
+    år = int(år_svar.strip()) if år_svar else i_år
+
+    # ── 6. bedst_før ──────────────────────────────────────────────────────────
+    bedst_svar = questionary.text(
+        "Bedst før (årstal):",
+        default=str(år + 3),
+        validate=lambda v: v.strip().isdigit() or "Skriv et årstal",
+    ).ask()
+    bedst_før = int(bedst_svar.strip()) if bedst_svar else år + 3
+
+    # ── 7. rest ───────────────────────────────────────────────────────────────
+    rest = questionary.select(
+        "Restmængde:",
+        choices=["fuld", "lav"],
+        default="fuld",
+    ).ask() or "fuld"
+
+    # ── 8. pris ───────────────────────────────────────────────────────────────
+    pris_svar = (questionary.text("Pris i DKK (Enter = spring over):").ask() or "").strip()
+    pris = int(pris_svar) if pris_svar.isdigit() else None
+
+    # ── 9. noter ──────────────────────────────────────────────────────────────
+    noter = (questionary.text("Noter (Enter = ingen):").ask() or "").strip() or None
+
+    # ── Byg og gem ─────────────────────────────────────────────────────────────
+    post: dict = {"navn": navn}
+    if pid:
+        post = {"plante_id": pid, **post}
+    if sort:
+        post["sort"] = sort
+    if firma:
+        post["firma"] = firma
+    if kilde:
+        post["kilde"] = kilde
+    post["år"] = år
+    post["bedst_før"] = bedst_før
+    post["rest"] = rest
+    if pris is not None:
+        post["pris"] = pris
+    if noter:
+        post["noter"] = noter
+
+    ryaml = YAML()
+    ryaml.preserve_quotes = True
+    if FRØ_FIL.exists():
+        data = ryaml.load(FRØ_FIL.read_text(encoding="utf-8")) or {}
+    else:
+        data = {}
+    if "frø" not in data or data["frø"] is None:
+        data["frø"] = []
+    data["frø"].append(post)
+
+    buf = StringIO()
+    ryaml.dump(data, buf)
+    FRØ_FIL.write_text(buf.getvalue(), encoding="utf-8")
+
+    display_navn = f"{navn}{' ' + sort if sort else ''}"
+    print(f"\n✅ Frøpost gemt: {display_navn} → {FRØ_FIL}")
+    print("   Kør 'have build' for at opdatere siden.")
     print("   Kør 'have build' for at opdatere sitet.")

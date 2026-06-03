@@ -14,12 +14,13 @@ from .config import PROJECT_ROOT
 from .kontekst import (
     ALMANAK_FIL, ENTRIES_FIL, DATA_MAPPE, PLANTE_DB, MÅNEDER, MÅNEDER_LANG, AKTIVT_ÅR,
 )
-from .indlaes import load_yaml, load_bed_yaml, _les_entries_mappe, skriv_hvis_ændret
+from .indlaes import load_yaml, load_bed_yaml, load_frø, _les_entries_mappe, skriv_hvis_ændret
 
 __all__ = [
     "generer_html", "generer_info_side", "generer_index",
     "generer_planter_oversigt", "generer_hoenseregisteret_oversigt",
-    "generer_samlet_arkiv", "generer_redirect_index", "projekt_info",
+    "generer_frø_oversigt", "generer_samlet_arkiv",
+    "generer_redirect_index", "projekt_info",
     "_sync_mappe", "_generer_manglende_thumbnails",
 ]
 
@@ -246,6 +247,43 @@ def generer_hoenseregisteret_oversigt(alle_hoener, hoense_sti, env, nav_context=
         print(f"✅ Hønseregister genereret: {hoense_sti}")
     else:
         print(f"ℹ️  Hønseregister uændret: {hoense_sti}")
+
+
+def generer_frø_oversigt(frø_sti, env, nav_context=None):
+    """Generer frø.html — frøsamlingen fra data/frø.yaml, aktive poster øverst.
+
+    Beriger poster med plantedata fra PLANTE_DB hvis plante_id er sat.
+    Sorterer aktive efter bedst_før (stigende — ældste frø øverst).
+    """
+    i_år = datetime.date.today().year
+    aktive, arkiverede = load_frø()
+
+    def berig(post):
+        post = dict(post)
+        pid = post.get("plante_id")
+        if pid and pid in PLANTE_DB:
+            post["_plante"] = PLANTE_DB[pid]
+        bedst_før = post.get("bedst_før")
+        if isinstance(bedst_før, int):
+            if bedst_før < i_år:
+                post["_udløbet"] = True
+            elif bedst_før == i_år:
+                post["_udløber_snart"] = True
+        return post
+
+    aktive     = sorted([berig(p) for p in aktive],     key=lambda p: (p.get("bedst_før") or 9999, p.get("navn", "")))
+    arkiverede = [berig(p) for p in arkiverede]
+
+    skabelon = env.get_template("frø.html")
+    output = skabelon.render(
+        år=i_år, aktive=aktive, arkiverede=arkiverede,
+        antal_aktive=len(aktive), antal=len(aktive) + len(arkiverede),
+        **(nav_context or {}),
+    )
+    if skriv_hvis_ændret(frø_sti, output):
+        print(f"✅ Frøsamling genereret: {frø_sti}")
+    else:
+        print(f"ℹ️  Frøsamling uændret: {frø_sti}")
 
 
 def generer_samlet_arkiv(år_liste, arkiv_samlet_sti, env, plante_db=None, nav_context=None):

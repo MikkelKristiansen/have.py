@@ -24,6 +24,7 @@ OUT_MAPPE   = out_mappe(_config)
 FOTOS_MAPPE = sti(_config, "fotos")   # absolut — så foto-skrivning er uafhængig af cwd
 PLANTER_FIL = sti(_config, "data") / "planter.yaml"
 DYR_FIL     = sti(_config, "data") / "dyr.yaml"
+FRØ_FIL     = sti(_config, "data") / "frø.yaml"
 ALMANAK_FIL = DATA_MAPPE / "almanak.yaml"
 ENTRIES_FIL = DATA_MAPPE / "entries.yaml"
 

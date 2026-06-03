@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+
+{% block title %}Frøsamling{% endblock %}
+
+{% block body_attrs %} class="planter-side"{% endblock %}
+
+{% block extra_head %}
+<style>
+  .badge { display: inline-block; font-size: .72rem; font-weight: 600; padding: .15em .5em; border-radius: 3px; margin-left: .35em; vertical-align: middle; }
+  .badge-udlobet   { background: #c0392b; color: #fff; }
+  .badge-snart     { background: #e67e22; color: #fff; }
+  .udgaaet         { opacity: .75; }
+  .udloeber-snart  { border-left: 3px solid #e67e22; }
+  details > summary { cursor: pointer; list-style: none; }
+  details > summary::-webkit-details-marker { display: none; }
+</style>
+{% endblock %}
+
+{% block indhold %}
+<header class="side-header">
+  <h1>🌱 Frøsamling</h1>
+  <p class="meta-linje">{{ antal_aktive }} aktive poser
+    {%- if arkiverede %} &middot; {{ arkiverede | length }} arkiverede{% endif %}</p>
+</header>
+
+<main>
+
+{# ── Makro: ét frøkort ──────────────────────────────────────────────────────── #}
+{% macro frø_kort(post) %}
+<article class="plante-kort {% if post.foto %}har-foto{% endif %}{% if post._udløbet %} udgaaet{% elif post._udløber_snart %} udloeber-snart{% endif %}">
+
+  {% if post.foto %}
+  <div class="plante-foto">
+    <a href="fotos/frø/{{ post.foto }}" data-lightbox>
+      <img src="fotos/frø/thumbs/{{ post.foto }}" loading="lazy" alt="{{ post.navn }}{% if post.sort %} {{ post.sort }}{% endif %}">
+    </a>
+  </div>
+  {% endif %}
+
+  <div class="plante-indhold">
+
+    <header class="plante-navn-linje">
+      {% if post._plante %}
+      <h3><a href="{{ jaar_sti | default('') }}planter.html#plante-{{ post.plante_id }}">{{ post.navn }}</a></h3>
+      {% else %}
+      <h3>{{ post.navn }}</h3>
+      {% endif %}
+      {% if post.sort %}<span class="plante-sort">{{ post.sort }}</span>{% endif %}
+      {% if post._udløbet %}
+        <span class="badge badge-udlobet">udløbet</span>
+      {% elif post._udløber_snart %}
+        <span class="badge badge-snart">udløber i år</span>
+      {% endif %}
+    </header>
+
+    <dl class="plante-dyrkning">
+      {% if post.firma %}
+      <div><dt>Firma</dt><dd>{{ post.firma }}</dd></div>
+      {% elif post.kilde %}
+      <div><dt>Kilde</dt><dd>{{ post.kilde }}</dd></div>
+      {% endif %}
+      {% if post.år %}
+      <div><dt>Købt/høstet</dt><dd>{{ post.år }}</dd></div>
+      {% endif %}
+      <div><dt>Bedst før</dt><dd>{{ post.bedst_før }}</dd></div>
+      {% if post.rest %}
+      <div><dt>Rest</dt><dd>{{ post.rest | capitalize }}</dd></div>
+      {% endif %}
+      {% if post.pris %}
+      <div><dt>Pris</dt><dd>{{ post.pris }} kr.</dd></div>
+      {% endif %}
+    </dl>
+
+    {% if post.noter %}
+    <p class="plante-noter">{{ post.noter }}</p>
+    {% endif %}
+
+  </div>
+</article>
+{% endmacro %}
+
+{# ── Aktive frøposer ─────────────────────────────────────────────────────────── #}
+{% if aktive %}
+<section class="plante-gruppe" id="gruppe-aktive">
+  <h2 class="gruppe-overskrift">🌱 Lager</h2>
+  <div class="plante-gitter">
+    {% for post in aktive %}{{ frø_kort(post) }}{% endfor %}
+  </div>
+</section>
+{% else %}
+<section class="plante-gruppe">
+  <p>Ingen frøposer på lager endnu. Tilføj med <code>have ny-frø</code>.</p>
+</section>
+{% endif %}
+
+{# ── Arkiverede (tomme) poser ────────────────────────────────────────────────── #}
+{% if arkiverede %}
+<section class="plante-gruppe" id="gruppe-arkiv">
+  <details>
+    <summary class="gruppe-overskrift">📦 Arkiv — tomme poser ({{ arkiverede | length }})</summary>
+    <div class="plante-gitter">
+      {% for post in arkiverede %}
+      <article class="plante-kort{% if post.foto %} har-foto{% endif %}">
+        {% if post.foto %}
+        <div class="plante-foto">
+          <a href="fotos/frø/{{ post.foto }}" data-lightbox>
+            <img src="fotos/frø/thumbs/{{ post.foto }}" loading="lazy" alt="{{ post.navn }}{% if post.sort %} {{ post.sort }}{% endif %}">
+          </a>
+        </div>
+        {% endif %}
+        <div class="plante-indhold">
+          <header class="plante-navn-linje">
+            <h3>{{ post.navn }}</h3>
+            {% if post.sort %}<span class="plante-sort">{{ post.sort }}</span>{% endif %}
+            <span class="badge badge-udlobet">tom</span>
+          </header>
+          <dl class="plante-dyrkning">
+            {% if post.firma %}
+            <div><dt>Firma</dt><dd>{{ post.firma }}</dd></div>
+            {% elif post.kilde %}
+            <div><dt>Kilde</dt><dd>{{ post.kilde }}</dd></div>
+            {% endif %}
+            {% if post.år %}<div><dt>Høst/køb</dt><dd>{{ post.år }}</dd></div>{% endif %}
+            {% if post.udbytte %}<div><dt>Udbytte</dt><dd>{{ post.udbytte }}</dd></div>{% endif %}
+          </dl>
+          {% if post.noter %}<p class="plante-noter">{{ post.noter }}</p>{% endif %}
+        </div>
+      </article>
+      {% endfor %}
+    </div>
+  </details>
+</section>
+{% endif %}
+
+</main>
+
+{% endblock %}
