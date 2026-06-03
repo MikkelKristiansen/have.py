@@ -112,6 +112,11 @@ def generer_html(yaml_sti, html_sti, env, alle_planter, nav_context=None,
             mån["entries"].sort(key=lambda e: str(e["dato"]))
     har_almanak = bool(almanak_måneder)
 
+    # Beregn naboadvarsler pr. bed (muterer en kopi — original data rørtes ikke)
+    bede = [dict(bed) for bed in data.get("bede", [])]
+    for bed in bede:
+        bed["_advarsler"] = _beregn_nabo_advarsler(bed.get("zoner", []), PLANTE_DB)
+
     skabelon = env.get_template("have.html")
     output = skabelon.render(
         titel           = data["meta"]["titel"],
@@ -120,7 +125,7 @@ def generer_html(yaml_sti, html_sti, env, alle_planter, nav_context=None,
         ikon_billede    = data["meta"].get("ikon_billede", ""),
         undertitel      = data["meta"].get("undertitel", ""),
         beskrivelse     = data["meta"].get("beskrivelse", ""),
-        bede            = data.get("bede", []),
+        bede            = bede,
         planter         = relevante_planter,
         måneder         = MÅNEDER,
         har_almanak     = har_almanak,
@@ -159,6 +164,78 @@ def generer_index(projekter, index_sti, env, nav_context=None, hero_billede="", 
         print(f"✅ Index genereret: {index_sti}")
     else:
         print(f"ℹ️  Index uændret: {index_sti}")
+
+
+def _aktiv_plante_id(zone: dict) -> str | None:
+    """Returner plante_id for den aktive afgrøde i zonen — spejler aktiv_afgrøde-filteret."""
+    afgrøder = zone.get("afgrøder", [])
+    if not afgrøder:
+        return zone.get("plante_id") or None
+    måned = datetime.date.today().month
+
+    def er_aktiv(a):
+        fra, til = a.get("fra", 1), a.get("til", 12)
+        return (fra <= måned <= til) if fra <= til else (måned >= fra or måned <= til)
+
+    aktive = [(i, a) for i, a in enumerate(afgrøder) if er_aktiv(a)]
+    if aktive:
+        _, best_a = max(aktive, key=lambda x: x[1].get("fra", 1))
+        return best_a.get("plante_id") or None
+    return afgrøder[0].get("plante_id") or None
+
+
+def _beregn_nabo_advarsler(zoner: list, plante_db: dict) -> list:
+    """Gennemgår tilstødende zone-par i et bed og returnerer naboadvarsler.
+
+    Hvert par (zoner[i], zoner[i+1]) kontrolleres i begge retninger.
+    Samme par+type vises kun én gang (dedupliceret via frozenset-nøgle).
+    Returnerer liste af dicts med: zone_a, zone_b, type ('god'|'dårlig'),
+    note, plante_a, plante_b.
+    """
+    advarsler = []
+    set_nøgler: set = set()
+
+    for i in range(len(zoner) - 1):
+        zone_a = zoner[i]
+        zone_b = zoner[i + 1]
+        pid_a  = _aktiv_plante_id(zone_a)
+        pid_b  = _aktiv_plante_id(zone_b)
+        if not pid_a or not pid_b:
+            continue
+
+        plante_a = plante_db.get(pid_a, {})
+        plante_b = plante_db.get(pid_b, {})
+        navn_a   = plante_a.get("navn") or pid_a
+        navn_b   = plante_b.get("navn") or pid_b
+        zone_a_navn = zone_a.get("navn") or f"Zone {i + 1}"
+        zone_b_navn = zone_b.get("navn") or f"Zone {i + 2}"
+
+        for kilde_pid, kilde_plante, a_navn, b_navn in [
+            (pid_a, plante_a, navn_a, navn_b),
+            (pid_b, plante_b, navn_b, navn_a),
+        ]:
+            modpart_pid = pid_b if kilde_pid == pid_a else pid_a
+            naboer = kilde_plante.get("naboer") or {}
+            for retning, type_ in [("gode", "god"), ("dårlige", "dårlig")]:
+                for nabo in naboer.get(retning) or []:
+                    if nabo.get("plante_id") != modpart_pid:
+                        continue
+                    nøgle = (frozenset({pid_a, pid_b}), type_)
+                    if nøgle in set_nøgler:
+                        break
+                    set_nøgler.add(nøgle)
+                    advarsler.append({
+                        "zone_a":   zone_a_navn,
+                        "zone_b":   zone_b_navn,
+                        "type":     type_,
+                        "note":     nabo.get("note") or "",
+                        "plante_a": a_navn,
+                        "plante_b": b_navn,
+                    })
+                    break
+
+    advarsler.sort(key=lambda a: 0 if a["type"] == "god" else 1)
+    return advarsler
 
 
 def _berig_naboer(p: dict) -> dict:

@@ -51,6 +51,16 @@
     {% if bed.beskrivelse %}
     <div class="bed-beskrivelse">{{ bed.beskrivelse }}</div>
     {% endif %}
+    {% if bed._advarsler %}
+    <div class="nabo-advarsler">
+      {% for a in bed._advarsler %}
+      <div class="nabo-advarsel nabo-advarsel--{{ a.type }}">
+        {% if a.type == 'god' %}✅ Gode naboer{% else %}⚠️ Dårlige naboer{% endif %}:
+        <strong>{{ a.plante_a }}</strong> og <strong>{{ a.plante_b }}</strong>{% if a.note %} — {{ a.note }}{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
     <div class="bede-wrapper">
     <div class="bed" style="height:{{ bh_px }}px;">
       {% set total_rel = bed.zoner | sum(attribute='bredde') %}

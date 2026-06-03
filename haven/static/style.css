@@ -1113,3 +1113,19 @@ td { border: 1px solid #e0e0e0; padding: 6px 5px; text-align: center; }
 #alm-filter-nulstil:hover {
   background: #c5e1a5;
 }
+
+/* ── Naboadvarsler i bed-visningen ── */
+.nabo-advarsler {
+  display: flex; flex-direction: column; gap: .35rem;
+  padding: .5rem .75rem; margin: .4rem 0;
+}
+.nabo-advarsel {
+  font-size: .82rem; padding: .3rem .65rem;
+  border-radius: 5px; border-left: 3px solid transparent;
+}
+.nabo-advarsel--god {
+  background: #f1f8e9; border-color: #81c784; color: #2e7d32;
+}
+.nabo-advarsel--dårlig {
+  background: #fff8e1; border-color: #ffb300; color: #5d4037;
+}
