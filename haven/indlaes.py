@@ -19,12 +19,14 @@ from pathlib import Path
 import yaml
 
 from .kontekst import (
-    PLANTER_FIL, DYR_FIL, FRØ_FIL, PLANTE_DB, DATA_MAPPE, YAML_FILER_DEFAULT,
+    PLANTER_FIL, DYR_FIL, FRØ_FIL, SKADEDYR_FIL, PLANTE_DB, SKADEDYR_DB,
+    DATA_MAPPE, YAML_FILER_DEFAULT,
 )
 
 __all__ = [
     "load_yaml", "normaliser_bed_data", "load_bed_yaml", "skriv_hvis_ændret",
     "byg_plante_db", "byg_dyr_db", "load_frø", "opslag_plante", "berig_kalender_planter",
+    "load_skadedyr", "byg_skadedyr_db", "skadedyr_for_plante",
     "_dyr_label", "_slug", "slugify", "plante_id",
     "_find_yaml_filer", "_les_entries_mappe",
 ]
@@ -187,6 +189,63 @@ def _dyr_label(d: dict) -> str:
         return navn
     dele = [str(d.get("race", "")).strip(), str(d.get("farve", "")).strip()]
     return " ".join(p for p in dele if p) or d.get("id", "?")
+
+
+# ── Skadedyr ─────────────────────────────────────────────────────────────────────
+
+def load_skadedyr(sti: Path = SKADEDYR_FIL) -> dict:
+    """Indlæser data/skadedyr.yaml og returnerer en dict { id → skadedyr_dict }.
+
+    Returnerer tom dict hvis filen mangler — skadedyrsdatabasen er valgfri.
+    """
+    if not os.path.exists(sti):
+        return {}
+    data = load_yaml(sti)
+    db = {}
+    skadedyr = data if isinstance(data, list) else data.get("skadedyr", [])
+    for s in skadedyr or []:
+        if "id" in s:
+            db[s["id"]] = s
+        else:
+            print(f"[ADVARSEL] Skadedyr uden id: {s.get('navn', '?')}", file=sys.stderr)
+    return db
+
+
+def byg_skadedyr_db(sti: Path = SKADEDYR_FIL) -> None:
+    """Fylder den modul-globale SKADEDYR_DB in-place fra skadedyr.yaml.
+
+    Muterer SKADEDYR_DB (clear + update) — re-binder den aldrig, så alle moduler
+    deler samme objekt (jf. PLANTE_DB/DYR_DB-reglen i kontekst.py).
+    """
+    SKADEDYR_DB.clear()
+    SKADEDYR_DB.update(load_skadedyr(sti))
+
+
+def skadedyr_for_plante(plante: dict, skadedyr_db: dict) -> list:
+    """Returnerer en liste af skadedyr-dicts for en given plante.
+
+    Kombinerer to mekanismer og deduplikerer på id:
+      1. Familiebaserede — skadedyr hvor plantens familie er i familier-listen
+      2. Plantespecifikke — skadedyr refereret via plante['skadedyr_ids']
+    Familiebaserede vises først (i skadedyr.yaml's rækkefølge), derefter de
+    plantespecifikke der ikke allerede er med. Tom liste hvis intet matcher.
+    """
+    resultat = []
+    set_ids: set = set()
+    familie = plante.get("familie")
+
+    if familie:
+        for sid, s in skadedyr_db.items():
+            if familie in (s.get("familier") or []) and sid not in set_ids:
+                set_ids.add(sid)
+                resultat.append(s)
+
+    for sid in plante.get("skadedyr_ids") or []:
+        if sid in skadedyr_db and sid not in set_ids:
+            set_ids.add(sid)
+            resultat.append(skadedyr_db[sid])
+
+    return resultat
 
 
 # ── Slug / id-konvention ─────────────────────────────────────────────────────────

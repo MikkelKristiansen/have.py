@@ -14,9 +14,11 @@ class Naboer(BaseModel):
 
 
 class Skadedyr(BaseModel):
+    id:          str
     navn:        str
     beskrivelse: str | None = None
     forebyggelse: str | None = None
+    familier:    list[str] = []
 
 
 class FotoModel(BaseModel):
@@ -48,7 +50,7 @@ class Plante(BaseModel):
     pasning:     str | None = None
     foto:        FotoModel | None = None
     naboer:      Naboer | None = None
-    skadedyr:    list[Skadedyr] = []
+    skadedyr_ids: list[str] = []
 
 
 class Høne(BaseModel):

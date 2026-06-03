@@ -96,7 +96,7 @@
 
         {% set har_gode = p.naboer and p.naboer.gode %}
         {% set har_dårlige = p.naboer and p.naboer.dårlige %}
-        {% if har_gode or har_dårlige or p.skadedyr %}
+        {% if har_gode or har_dårlige or p.skadedyr_opslag %}
         <details class="plante-naboer-skadedyr">
           <summary>Naboer &amp; skadedyr</summary>
 
@@ -131,10 +131,10 @@
           </div>
           {% endif %}
 
-          {% if p.skadedyr %}
+          {% if p.skadedyr_opslag %}
           <div class="skadedyr-liste">
             <h4>Skadedyr og sygdomme</h4>
-            {% for s in p.skadedyr %}
+            {% for s in p.skadedyr_opslag %}
             <div class="skadedyr-post">
               <strong>{{ s.navn }}</strong>
               {% if s.beskrivelse %}<p>{{ s.beskrivelse }}</p>{% endif %}

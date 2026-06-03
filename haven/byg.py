@@ -148,6 +148,9 @@ def generer_alle(yaml_filer=None) -> list:
     DYR_DB.update(byg_dyr_db())
     if DYR_DB:
         print(f"✅ Dyreregister indlæst: {len(DYR_DB)} dyr")
+    byg_skadedyr_db()
+    if SKADEDYR_DB:
+        print(f"✅ Skadedyrsdatabase indlæst: {len(SKADEDYR_DB)} skadedyr")
     valider_planter(PLANTE_DB)
     valider_referencer(PLANTE_DB, yaml_filer)
 

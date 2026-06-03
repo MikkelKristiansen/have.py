@@ -22,9 +22,10 @@ AKTIVT_ÅR   = _config["aktivt_år"]
 DATA_MAPPE  = data_mappe(_config)
 OUT_MAPPE   = out_mappe(_config)
 FOTOS_MAPPE = sti(_config, "fotos")   # absolut — så foto-skrivning er uafhængig af cwd
-PLANTER_FIL = sti(_config, "data") / "planter.yaml"
-DYR_FIL     = sti(_config, "data") / "dyr.yaml"
-FRØ_FIL     = sti(_config, "data") / "frø.yaml"
+PLANTER_FIL  = sti(_config, "data") / "planter.yaml"
+DYR_FIL      = sti(_config, "data") / "dyr.yaml"
+FRØ_FIL      = sti(_config, "data") / "frø.yaml"
+SKADEDYR_FIL = sti(_config, "data") / "skadedyr.yaml"
 ALMANAK_FIL = DATA_MAPPE / "almanak.yaml"
 ENTRIES_FIL = DATA_MAPPE / "entries.yaml"
 
@@ -79,8 +80,9 @@ MÅNEDER_LANG = ["januar","februar","marts","april","maj","juni",
 # ── Mutérbare databaser ──────────────────────────────────────────────────────
 # Populeres i main/generer_alle via .update(); muteres KUN in-place.
 
-PLANTE_DB: dict = {}  # Populeres i main via PLANTE_DB.update(byg_plante_db())
-DYR_DB: dict = {}     # Populeres i generer_alle via DYR_DB.update(byg_dyr_db())
+PLANTE_DB: dict = {}    # Populeres i main via PLANTE_DB.update(byg_plante_db())
+DYR_DB: dict = {}       # Populeres i generer_alle via DYR_DB.update(byg_dyr_db())
+SKADEDYR_DB: dict = {}  # Populeres i generer_alle via byg_skadedyr_db()
 
 
 # Hønse-entry-typer: ikon + dansk label. Styrer både wizard-valg og visning.

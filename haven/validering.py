@@ -16,13 +16,15 @@ from pydantic import ValidationError
 
 from .config import sti, PROJECT_ROOT
 from .kontekst import (
-    _config, PLANTER_FIL, DYR_FIL, FRØ_FIL, DATA_MAPPE, AKTIVT_ÅR, ALMANAK_FIL, ENTRIES_FIL,
+    _config, PLANTER_FIL, DYR_FIL, FRØ_FIL, SKADEDYR_FIL, DATA_MAPPE, AKTIVT_ÅR,
+    ALMANAK_FIL, ENTRIES_FIL,
 )
 from .models import Plante, Høne
-from .indlaes import load_yaml, load_bed_yaml, skriv_hvis_ændret
+from .indlaes import load_yaml, load_bed_yaml, skriv_hvis_ændret, load_skadedyr
 
 __all__ = [
     "valider_planter", "valider_hoenser", "valider_referencer", "valider_frø",
+    "valider_skadedyr",
     "check", "opdater_schema_plante_ids", "opdater_schema_planter",
 ]
 
@@ -146,6 +148,43 @@ def valider_frø(frø_data: list, plante_ids: set) -> list:
                 issues.append(("W",
                     f"frø '{navn}': foto {foto!r} eksisterer ikke "
                     f"— tilføj filen eller ret foto-feltet"))
+    return issues
+
+
+# ── Skadedyr ─────────────────────────────────────────────────────────────────────
+
+def valider_skadedyr(skadedyr_data: dict, plante_db: dict) -> list:
+    """Blød validering af skadedyr-referencer. Returnerer (niveau, besked)-tupler.
+
+    niveau er altid 'W' (advarsel) — skadedyr giver aldrig hårde 'E'-fejl:
+      - Advarsel hvis et skadedyr_id i en plantes skadedyr_ids ikke findes
+        i skadedyr.yaml.
+      - Info-advarsel hvis en plantes familie ikke dækkes af nogen post i
+        skadedyr.yaml (konsolideret til én linje).
+    """
+    issues = []
+    kendte_ids = set(skadedyr_data.keys())
+    dækkede_familier = {
+        f for s in skadedyr_data.values() for f in (s.get("familier") or [])
+    }
+
+    udækkede_familier: dict = {}
+    for pid, p in plante_db.items():
+        for sid in p.get("skadedyr_ids") or []:
+            if sid not in kendte_ids:
+                issues.append(("W",
+                    f"plante '{pid}': skadedyr_id {sid!r} ikke fundet i skadedyr.yaml "
+                    f"— tilføj det eller ret referencen"))
+        fam = p.get("familie")
+        if fam and fam not in dækkede_familier:
+            udækkede_familier.setdefault(fam, []).append(pid)
+
+    if udækkede_familier:
+        issues.append(("W",
+            f"{len(udækkede_familier)} plantefamilie(r) har ingen skadedyr i "
+            f"skadedyr.yaml: {', '.join(sorted(udækkede_familier))} — "
+            f"tilføj familien til et skadedyr eller ignorer (kun info)"))
+
     return issues
 
 
@@ -441,7 +480,18 @@ def check(yaml_filer, strict=False, farver=False):
         if not issues:
             OK(f"{len(aktive_frø)} aktive frøposter, {len(arkiverede_frø)} arkiverede — ok")
 
-    # ── 6. Farvetabel (kun ved --farver) ───────────────────────────────────────
+    # ── 6. skadedyr.yaml ────────────────────────────────────────────────────────
+    if os.path.isfile(SKADEDYR_FIL):
+        print(f"\n🔍 6. skadedyr.yaml\n")
+        skadedyr_db = load_skadedyr()
+        plante_db_full = {p["id"]: p for p in alle_planter if p.get("id")}
+        issues = valider_skadedyr(skadedyr_db, plante_db_full)
+        for niveau, besked in issues:
+            (E if niveau == "E" else W)(besked)
+        if not issues:
+            OK(f"{len(skadedyr_db)} skadedyr — referencer og familier ok")
+
+    # ── 7. Farvetabel (kun ved --farver) ───────────────────────────────────────
     if farver:
         print(f"\n🔍 Farver\n")
         print(f"  {'Plante':<25} {'Sort':<20} Farve")

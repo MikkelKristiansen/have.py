@@ -60,6 +60,53 @@
       ],
       "title": "FotoModel",
       "type": "object"
+    },
+    "Nabo": {
+      "properties": {
+        "plante_id": {
+          "title": "Plante Id",
+          "type": "string"
+        },
+        "note": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Note"
+        }
+      },
+      "required": [
+        "plante_id"
+      ],
+      "title": "Nabo",
+      "type": "object"
+    },
+    "Naboer": {
+      "properties": {
+        "gode": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Nabo"
+          },
+          "title": "Gode",
+          "type": "array"
+        },
+        "dårlige": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Nabo"
+          },
+          "title": "Dårlige",
+          "type": "array"
+        }
+      },
+      "title": "Naboer",
+      "type": "object"
     }
   },
   "properties": {
@@ -294,6 +341,25 @@
         }
       ],
       "default": null
+    },
+    "naboer": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Naboer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "skadedyr_ids": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Skadedyr Ids",
+      "type": "array"
     }
   },
   "required": [

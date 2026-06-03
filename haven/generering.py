@@ -12,9 +12,13 @@ from pathlib import Path
 
 from .config import PROJECT_ROOT
 from .kontekst import (
-    ALMANAK_FIL, ENTRIES_FIL, DATA_MAPPE, PLANTE_DB, MÅNEDER, MÅNEDER_LANG, AKTIVT_ÅR,
+    ALMANAK_FIL, ENTRIES_FIL, DATA_MAPPE, PLANTE_DB, SKADEDYR_DB,
+    MÅNEDER, MÅNEDER_LANG, AKTIVT_ÅR,
 )
-from .indlaes import load_yaml, load_bed_yaml, load_frø, _les_entries_mappe, skriv_hvis_ændret
+from .indlaes import (
+    load_yaml, load_bed_yaml, load_frø, _les_entries_mappe, skriv_hvis_ændret,
+    skadedyr_for_plante,
+)
 
 __all__ = [
     "generer_html", "generer_info_side", "generer_index",
@@ -238,16 +242,20 @@ def _beregn_nabo_advarsler(zoner: list, plante_db: dict) -> list:
     return advarsler
 
 
-def _berig_naboer(p: dict) -> dict:
-    """Berig en plante-post med display_navn og _fundet på alle naboer.
+def _berig_plante(p: dict) -> dict:
+    """Berig en plante-post til planter.html: naboer + skadedyr-opslag.
 
-    Kopierer posten og naboer-subdict — muterer ikke originalen.
-    Skabelonen behøver ikke selv slå op i PLANTE_DB.
+    Kopierer posten (og naboer-subdict) — muterer ikke originalen. Tilføjer
+    `skadedyr_opslag` (kombinerede familie- + plantespecifikke skadedyr) og
+    beriger hver nabo med display_navn/_fundet, så skabelonen ikke selv skal
+    slå op i PLANTE_DB / SKADEDYR_DB.
     """
+    p = dict(p)
+    p["skadedyr_opslag"] = skadedyr_for_plante(p, SKADEDYR_DB)
+
     naboer = p.get("naboer")
     if not naboer:
         return p
-    p = dict(p)
 
     def berig_liste(liste):
         resultat = []
@@ -313,7 +321,7 @@ def generer_planter_oversigt(alle_planter, yaml_filer, planter_sti, env, nav_con
         planter.sort(key=lambda p: (p.get("navn", ""), p.get("sort", "")))
     grupper = [
         {"navn": g, "ikon": gruppe_ikoner.get(g, "🌿"), "url": gruppe_url.get(g, ""),
-         "planter": [_berig_naboer(p) for p in grupper_dict[g]]}
+         "planter": [_berig_plante(p) for p in grupper_dict[g]]}
         for g in gruppe_rækkefølge if grupper_dict.get(g)
     ]
     skabelon = env.get_template("planter.html")
