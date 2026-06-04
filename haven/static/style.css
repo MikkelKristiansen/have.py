@@ -1173,18 +1173,22 @@ td { border: 1px solid var(--kant-lys); padding: 6px 5px; text-align: center; }
   background: #c5e1a5;
 }
 
-/* ── Naboadvarsler i bed-visningen ── */
-.nabo-advarsler {
-  display: flex; flex-direction: column; gap: .35rem;
-  padding: .5rem .75rem; margin: .4rem 0;
+/* ── Naboadvarsler (vises i zone-popup) ── */
+.zone-nabo-badge {
+  position: absolute; top: 3px; left: 5px;
+  font-size: .7rem; line-height: 1; pointer-events: none;
+  filter: drop-shadow(0 0 1px rgba(0,0,0,.45));
 }
-.nabo-advarsel {
-  font-size: var(--tekst-sm); padding: .3rem .65rem;
-  border-radius: 5px; border-left: 3px solid transparent;
+.nabo-felt-wrap {
+  display: flex; flex-direction: column; gap: .35rem; margin-bottom: .6rem;
 }
-.nabo-advarsel--god {
+.nabo-felt {
+  font-size: var(--tekst-sm); padding: .4rem .65rem;
+  border-radius: 5px; border-left: 3px solid transparent; line-height: 1.35;
+}
+.nabo-felt--god {
   background: #f1f8e9; border-color: #81c784; color: var(--grøn-2);
 }
-.nabo-advarsel--dårlig {
+.nabo-felt--dårlig {
   background: #fff8e1; border-color: #ffb300; color: #5d4037;
 }
