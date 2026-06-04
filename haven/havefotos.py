@@ -10,6 +10,7 @@ Brug:
 """
 
 import argparse
+import re
 from pathlib import Path
 
 import yaml
@@ -85,6 +86,37 @@ def hent_hons_fotos() -> list[dict]:
     return result
 
 
+def _fjern_foto_fra_md(sti: Path) -> bool:
+    """Fjerner foto-feltet fra frontmatter i en markdown-entry. Bevarer brødtekst.
+
+    Håndterer både string-form (`foto: x.jpg`) og blok-/dict-form (`foto:` efterfulgt
+    af indrykkede underlinjer). Returnerer True hvis et felt blev fjernet.
+    """
+    tekst = sti.read_text(encoding="utf-8")
+    m = re.match(r"^(---\n)(.*?)(\n---)(.*)$", tekst, re.DOTALL)
+    if not m:
+        return False
+    start, fm_body, slut, resten = m.groups()
+    linjer = fm_body.split("\n")
+    nye: list[str] = []
+    fjernet = False
+    i = 0
+    while i < len(linjer):
+        if re.match(r"^foto\s*:", linjer[i]):
+            fjernet = True
+            i += 1
+            # spring evt. indrykkede underlinjer over (blok-/dict-form)
+            while i < len(linjer) and re.match(r"^\s+\S", linjer[i]):
+                i += 1
+            continue
+        nye.append(linjer[i])
+        i += 1
+    if not fjernet:
+        return False
+    sti.write_text(start + "\n".join(nye) + slut + resten, encoding="utf-8")
+    return True
+
+
 def main():
     parser = argparse.ArgumentParser(
         prog="have hent-havefotos",
@@ -155,7 +187,10 @@ def main():
         return
 
     # ── Standard: tjek manglende filer (tør kørsel eller --skriv) ────────────────
-    mangler = []
+    mangler     = []
+    ryddet_yaml = 0
+    ryddet_md   = 0
+    urørte      = []   # manglende refs vi ikke kunne rydde automatisk
     for i, e in med_foto:
         fil = _foto_fil(e)
         if not fil:
@@ -165,14 +200,36 @@ def main():
             mangler.append((i, e, fil))
             print(f"  🗑  {str(e.get('dato','?')):<12} {e.get('område_id','?'):<14} mangler: {fil}"
                   + ("" if args.skriv else " (tør kørsel)"))
-            if args.skriv and i is not None:   # kun YAML-entries kan rettes herfra
-                e.pop("foto")
+            if not args.skriv:
+                continue
+            kilde = e.get("_kilde", "")
+            if i is not None:                       # rigtig entries.yaml-række
+                e.pop("foto", None)
+                ryddet_yaml += 1
+            elif kilde.endswith(".md") and _fjern_foto_fra_md(Path(kilde)):
+                ryddet_md += 1
+                print(f"       ↳ foto-felt fjernet fra {Path(kilde).name}")
+            else:                                   # fx hønse-yaml — rør ikke
+                urørte.append((e, fil))
 
-    if args.skriv and mangler:
-        with open(ENTRIES_FIL, "w", encoding="utf-8") as f:
-            yaml.dump(data, f, allow_unicode=True,
-                      default_flow_style=False, sort_keys=False)
-        print(f"\n✅ entries.yaml opdateret ({len(mangler)} foto-felter ryddet)")
+    if args.skriv:
+        if ryddet_yaml:
+            with open(ENTRIES_FIL, "w", encoding="utf-8") as f:
+                yaml.dump(data, f, allow_unicode=True,
+                          default_flow_style=False, sort_keys=False)
+        if ryddet_yaml or ryddet_md:
+            dele = []
+            if ryddet_yaml:
+                dele.append(f"{ryddet_yaml} i entries.yaml")
+            if ryddet_md:
+                dele.append(f"{ryddet_md} i markdown-noter")
+            print(f"\n✅ {ryddet_yaml + ryddet_md} foto-felt(er) ryddet ({', '.join(dele)})")
+        if urørte:
+            print(f"\n⚠️  {len(urørte)} foto-reference(r) kunne ikke ryddes automatisk — ret manuelt:")
+            for e, fil in urørte:
+                print(f"     {str(e.get('dato','?')):<12} {e.get('område_id','?'):<14} {fil}  ({e.get('_kilde','?')})")
+        if not mangler:
+            print("✅ Alle foto-felter peger på eksisterende filer.")
     elif not mangler:
         print("✅ Alle foto-felter i entries.yaml peger på eksisterende filer.")
 
