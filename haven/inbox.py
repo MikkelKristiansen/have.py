@@ -133,6 +133,19 @@ def _læs_entry(mappe: Path):
         return {"kind": "hons", "dato": str(dato), "hons_type": hons_type,
                 "høne": høne, "noter": tekst, "ekstra": ekstra, "foto_kilde": foto_kilde}, None
 
+    if typ == "plantefoto":
+        plante_id = data.get("plante_id")
+        if isinstance(plante_id, list):
+            plante_id = plante_id[0] if plante_id else None
+        plante_id = (str(plante_id).strip() if plante_id else "")
+        if not plante_id:
+            return None, "plantefoto mangler plante_id"
+        if not foto_kilde:
+            return None, "plantefoto mangler foto"
+        return {"kind": "plantefoto", "dato": str(dato), "plante_id": plante_id,
+                "forfatter": (data.get("forfatter") or "").strip() or None,
+                "foto_kilde": foto_kilde}, None
+
     if typ == "frøindkøb":
         navn = (data.get("navn") or "").strip()
         if not navn:
@@ -220,6 +233,74 @@ def opret_frø_fra_inbox(felter: dict, mappe: Path) -> None:
     print(f"      → {_rel(FRØ_FIL)}")
 
 
+def opdater_plantefoto_fra_inbox(felter: dict) -> None:
+    """Erstat en eksisterende plantes foto med et eget billede fra inbox.
+
+    Kopierer billedet til fotos/planter/{plante_id}.{ext}, optimerer det (1200px
+    JPEG + thumbnail), sletter den gamle billedfil, og opdaterer foto-blokken i
+    planter.yaml til eget værk. Wikimedia-kilden (foto.kilde) fjernes, så planten
+    automatisk forsvinder fra Billedrettigheder-tabellen på planter-siden.
+
+    Springer over (med advarsel) hvis planten ikke findes i planter.yaml.
+    """
+    import shutil
+    from io import StringIO
+    from ruamel.yaml import YAML
+    from ruamel.yaml.comments import CommentedMap
+    from .kontekst import PLANTER_FIL
+
+    pid = felter["plante_id"]
+    if not PLANTER_FIL.exists():
+        print(f"      ⚠️  {PLANTER_FIL} findes ikke — springer over")
+        return
+
+    ryaml = YAML()
+    ryaml.preserve_quotes = True
+    data = ryaml.load(PLANTER_FIL.read_text(encoding="utf-8")) or {}
+    planter = data if isinstance(data, list) else data.get("planter", [])
+    post = next((p for p in (planter or []) if p.get("id") == pid), None)
+    if post is None:
+        print(f"      ⚠️  plante {pid!r} findes ikke i planter.yaml — springer over")
+        return
+
+    planter_fotos = PROJECT_ROOT / "fotos" / "planter"
+    planter_fotos.mkdir(parents=True, exist_ok=True)
+    kilde = Path(felter["foto_kilde"])
+    ext = kilde.suffix.lower() or ".jpg"
+    dest = planter_fotos / f"{pid}{ext}"
+    shutil.copy2(kilde, dest)
+    try:
+        from .fotos import optimer_foto
+        gem_sti = optimer_foto(dest)   # kan omdøbe .png/.heic → .jpg
+    except Exception as e:
+        print(f"      ⚠️  Foto ikke optimeret: {e}")
+        gem_sti = dest
+    nyt_filnavn = gem_sti.name
+
+    # Ryd det gamle billede (+ thumbnail) hvis det havde et andet filnavn.
+    gammel_foto = post.get("foto") if isinstance(post.get("foto"), dict) else {}
+    gammelt = gammel_foto.get("fil")
+    if gammelt and gammelt != nyt_filnavn and not str(gammelt).startswith("http"):
+        for forældet in (planter_fotos / gammelt, planter_fotos / "thumbs" / gammelt):
+            try:
+                forældet.unlink()
+            except OSError:
+                pass
+
+    # Skriv ny foto-blok: eget værk uden Wikimedia-kilde/url.
+    nyt_foto = CommentedMap()
+    nyt_foto["fil"] = nyt_filnavn
+    nyt_foto["licens"] = "eget værk"
+    if felter.get("forfatter"):
+        nyt_foto["forfatter"] = felter["forfatter"]
+    post["foto"] = nyt_foto
+
+    buf = StringIO()
+    ryaml.dump(data, buf)
+    PLANTER_FIL.write_text(buf.getvalue(), encoding="utf-8")
+    print(f"      → {_rel(PLANTER_FIL)} (foto: {nyt_filnavn})")
+
+
 def _rel(sti) -> str:
     s = str(sti)
     return str(Path(s).relative_to(Path.cwd())) if s.startswith(str(Path.cwd())) else s
@@ -245,6 +326,14 @@ def behandl(lokal: Path, skriv: bool) -> list[str]:
             print(f"  • [frøindkøb] {display}{flag}")
             if skriv:
                 opret_frø_fra_inbox(felter, mappe)
+            behandlede.append(mappe.name)
+            continue
+
+        if felter["kind"] == "plantefoto":
+            forf = f" af {felter['forfatter']}" if felter.get("forfatter") else ""
+            print(f"  • [plantefoto] {felter['dato']} / {felter['plante_id']}{forf}")
+            if skriv:
+                opdater_plantefoto_fra_inbox(felter)
             behandlede.append(mappe.name)
             continue
 
