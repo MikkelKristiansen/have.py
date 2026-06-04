@@ -32,7 +32,7 @@ from .deploy import upload, upload_ftp, gem_data
 from .vejr import hent_vejr
 from .wizards import (
     init_projekt, nyt_område, nyt_år, ny_entry, ny_plante, ret_i_plante_yaml,
-    nyt_bed, plant_en_plante, riv_en_plante_op, ret_en_plante, ret_bed,
+    ret_foto, nyt_bed, plant_en_plante, riv_en_plante_op, ret_en_plante, ret_bed,
     hons_ny_høne, hons_ny_obs, wizard_ny_frø,
 )
 
@@ -110,6 +110,8 @@ def main():
     subparsers.add_parser("ny-plante", help="Opret ny plante i planter.yaml (interaktiv wizard)")
 
     subparsers.add_parser("ret-i-plante-yaml", help="Ret en eksisterende plante i planter.yaml (interaktiv wizard)")
+
+    subparsers.add_parser("ret-foto", help="Ret foto for en plante (planter.yaml) eller høne (dyr.yaml) (interaktiv wizard)")
 
     # Subkommando: hent-fotos
     subparsers.add_parser("hent-fotos", help="Hent plantefotos fra Wikimedia")
@@ -212,6 +214,10 @@ def main():
 
     if args.kommando == "ret-i-plante-yaml":
         ret_i_plante_yaml()
+        sys.exit(0)
+
+    if args.kommando == "ret-foto":
+        ret_foto()
         sys.exit(0)
 
     if args.kommando == "ny-frø":

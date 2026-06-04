@@ -33,7 +33,7 @@ from .deploy import *            # noqa: F401,F403  _opdater_haven_yaml/_opdater
 __all__ = [
     "init_projekt", "nyt_område", "nyt_år",
     "opret_entry", "opret_hons_entry", "ny_entry",
-    "opret_plante", "ny_plante", "ret_i_plante_yaml", "nyt_bed",
+    "opret_plante", "ny_plante", "ret_i_plante_yaml", "ret_foto", "nyt_bed",
     "hons_ny_høne", "hons_ny_obs", "plant_en_plante",
     "riv_en_plante_op", "ret_en_plante", "ret_bed",
     "wizard_ny_frø",
@@ -744,6 +744,15 @@ def ny_plante():
     ).ask()
     latin = ((latin_input or "").strip() or auto_latin or None)
 
+    # ── familie ───────────────────────────────────────────────────────────────
+    # Driver familiebaserede skadedyr-opslag på plante-siden — spørg altid, så
+    # feltet ikke kun udfyldes når Wikidata leverer det.
+    familie_input = questionary.text(
+        "Familie (fx 'Natskygge', Enter = ingen):",
+        default=auto_familie or "",
+    ).ask()
+    familie = ((familie_input or "").strip() or auto_familie or None)
+
     # ── placering ─────────────────────────────────────────────────────────────
     placering = (questionary.text(
         "Placering (fx 'Sol', 'Halvskygge'):",
@@ -952,8 +961,8 @@ def ny_plante():
         plante["sort"] = sort
     if latin:
         plante["latin"] = latin
-    if auto_familie:
-        plante["familie"] = auto_familie
+    if familie:
+        plante["familie"] = familie
     if wikidata_q_id:
         plante["wikidata"] = wikidata_q_id
     plante["farve"] = farve
@@ -979,6 +988,9 @@ def ny_plante():
     if pasning:
         plante["pasning"] = pasning
     plante["foto"] = foto
+    # Tom nabo-skabelon skrives med, så feltet er synligt i planter.yaml og
+    # minder om at udfylde gode/dårlige naboer manuelt senere.
+    plante["naboer"] = {"gode": [], "dårlige": []}
 
     gem_pid, yaml_blok = opret_plante(plante)
     print(f"\n✓ Plante gemt: {gem_pid}")
@@ -986,6 +998,9 @@ def ny_plante():
     print("─" * 40)
     print(yaml_blok.rstrip())
     print("─" * 40)
+    if not familie:
+        print("\n  ℹ️  Ingen familie sat — uden den vises familiebaserede skadedyr ikke.")
+    print("\n  💡 Husk at udfylde naboer.gode / naboer.dårlige i planter.yaml.")
     print("\n  Redigér planter.yaml direkte for at justere værdierne.")
     print("  Kør 'have' for at opdatere sitet, eller 'have check' for at validere.")
 
@@ -1330,6 +1345,178 @@ def ret_i_plante_yaml():
     opdateret_sort = ændringer.get("sort") or valgt_plante.get("sort")
     label = f"{opdateret_navn} – {opdateret_sort} [{pid}]" if opdateret_sort else f"{opdateret_navn} [{pid}]"
     print(f"\n✓ {label} opdateret i {PLANTER_FIL.name}")
+    print("  Kør 'have' for at opdatere sitet, eller 'have check' for at validere.")
+
+
+def ret_foto():
+    """Interaktiv wizard: ret foto for en plante (planter.yaml) eller høne (dyr.yaml).
+
+    Kan importere en lokal billedfil (kopieres til fotos/planter/ hhv. fotos/dyr/,
+    optimeres til ≤1200px JPEG + thumbnail via optimer_foto) og/eller rette
+    foto-metadata (kilde/url/licens/forfatter). Skriver tilbage med ruamel.yaml så
+    øvrig struktur og kommentarer bevares.
+    """
+    import io as _io
+    import shutil as _shutil
+    import questionary
+    from ruamel.yaml import YAML as RuamelYAML
+    from ruamel.yaml.comments import CommentedMap
+
+    ry = RuamelYAML()
+    ry.preserve_quotes = True
+    ry.default_flow_style = False
+    ry.width = 120
+
+    # ── 1. Plante eller høne? ──────────────────────────────────────────────────
+    slags = questionary.select(
+        "Hvad vil du rette foto for?",
+        choices=[
+            questionary.Choice(title="🌿 Plante (planter.yaml)", value="plante"),
+            questionary.Choice(title="🐔 Høne/dyr (dyr.yaml)", value="dyr"),
+        ],
+    ).ask()
+    if not slags:
+        sys.exit(0)
+
+    if slags == "plante":
+        fil        = PLANTER_FIL
+        db         = byg_plante_db(PLANTER_FIL)
+        foto_mappe = FOTOS_MAPPE / "planter"
+        label_fn   = _plante_label
+        data_nøgle = "planter"
+    else:
+        fil        = DYR_FIL
+        db         = byg_dyr_db(DYR_FIL)
+        foto_mappe = FOTOS_MAPPE / "dyr"
+        label_fn   = lambda d: f"{_dyr_label(d)} [{d.get('id', '?')}]"
+        data_nøgle = "dyr"
+
+    if not db:
+        print(f"❌ Ingen poster fundet i {fil}")
+        sys.exit(1)
+
+    # ── 2. Vælg post ───────────────────────────────────────────────────────────
+    if slags == "plante":
+        valgt = None
+        while valgt is None:
+            søg = questionary.text("Søg efter plante (navn, sort eller id):").ask()
+            if søg is None:
+                sys.exit(0)
+            hits = _søg_planter(søg, db)
+            if not hits:
+                print(f"  Ingen planter matcher '{søg}'. Prøv igen.")
+                continue
+            if len(hits) == 1:
+                valgt = hits[0]
+            else:
+                valgt = questionary.select(
+                    "Vælg plante:",
+                    choices=[questionary.Choice(title=_plante_label(p), value=p) for p in hits],
+                ).ask()
+                if valgt is None:
+                    sys.exit(0)
+    else:
+        valgt = questionary.select(
+            "Vælg høne:",
+            choices=[
+                questionary.Choice(title=label_fn(d), value=d)
+                for d in sorted(db.values(), key=lambda d: _dyr_label(d).lower())
+            ],
+        ).ask()
+        if valgt is None:
+            sys.exit(0)
+
+    post_id = valgt["id"]
+    print(f"\n  Redigerer foto for: {label_fn(valgt)}")
+
+    nuværende = valgt.get("foto") if isinstance(valgt.get("foto"), dict) else {}
+    if nuværende:
+        print("  Nuværende foto:")
+        for k in ("fil", "kilde", "url", "licens", "forfatter"):
+            if nuværende.get(k):
+                print(f"    {k}: {nuværende[k]}")
+    else:
+        print("  (intet foto sat)")
+    print()
+
+    # ── 3. Importér evt. ny billedfil ──────────────────────────────────────────
+    nyt_filnavn = nuværende.get("fil") or ""
+    kilde_sti = (questionary.text(
+        f"Sti til ny billedfil (Enter = behold '{nyt_filnavn or '—'}'):",
+    ).ask() or "").strip()
+
+    if kilde_sti:
+        kilde_path = Path(os.path.expanduser(kilde_sti))
+        if not kilde_path.is_file():
+            print(f"❌ Filen eksisterer ikke: {kilde_sti!r}")
+            sys.exit(1)
+        foto_mappe.mkdir(parents=True, exist_ok=True)
+        dest = foto_mappe / f"{post_id}{kilde_path.suffix.lower()}"
+        _shutil.copy2(kilde_path, dest)
+        try:
+            from .fotos import optimer_foto
+            gem_sti = optimer_foto(dest)
+        except Exception as e:
+            print(f"⚠️  Kunne ikke optimere billedet ({e}) — beholder original.")
+            gem_sti = dest
+        nyt_filnavn = gem_sti.name
+        print(f"  💾 Gemt: {foto_mappe.name}/{nyt_filnavn}")
+
+    if not nyt_filnavn:
+        print("❌ Intet filnavn — afbrudt.")
+        sys.exit(0)
+
+    # ── 4. Ret metadata ────────────────────────────────────────────────────────
+    print("  Metadata (Enter = behold; mellemrum + Enter = fjern feltet):")
+
+    def _meta(prompt: str, felt: str):
+        svar = questionary.text(f"  {prompt}:", default=nuværende.get(felt, "") or "").ask()
+        if svar is None:
+            sys.exit(0)
+        return svar.strip()
+
+    forfatter = _meta("Forfatter", "forfatter")
+    licens    = _meta("Licens (fx 'eget værk', 'CC BY-SA 4.0')", "licens")
+    kilde     = _meta("Kilde-URL", "kilde")
+    url       = _meta("Direkte billed-URL (url)", "url")
+
+    # ── 5. Byg foto-dict i FotoModel-feltrækkefølge ────────────────────────────
+    nyt_foto = CommentedMap()
+    nyt_foto["fil"] = nyt_filnavn
+    if kilde:
+        nyt_foto["kilde"] = kilde
+    if url:
+        nyt_foto["url"] = url
+    if licens:
+        nyt_foto["licens"] = licens
+    if forfatter:
+        nyt_foto["forfatter"] = forfatter
+
+    buf = _io.StringIO()
+    ry.dump({"foto": nyt_foto}, buf)
+    print("\n── Nyt foto ──────────────────────────────────────────────")
+    print(buf.getvalue().rstrip())
+    print("──────────────────────────────────────────────────────────\n")
+    if not questionary.confirm(f"Gem til {fil.name}?", default=True).ask():
+        print("Afbrudt — ingen ændringer gemt.")
+        sys.exit(0)
+
+    # ── 6. Skriv tilbage med ruamel.yaml (bevarer struktur) ────────────────────
+    with open(fil, encoding="utf-8") as fh:
+        rå_data = ry.load(fh)
+
+    poster = rå_data if isinstance(rå_data, list) else rå_data.get(data_nøgle, [])
+    post = next((p for p in poster if p.get("id") == post_id), None)
+    if post is None:
+        print(f"❌ Kunne ikke finde {post_id!r} i {fil.name} — afbrudt.")
+        sys.exit(1)
+    post["foto"] = nyt_foto
+
+    buf = _io.StringIO()
+    ry.dump(rå_data, buf)
+    fil.write_text(buf.getvalue(), encoding="utf-8")
+
+    print(f"\n✓ Foto opdateret for {label_fn(valgt)} i {fil.name}")
     print("  Kør 'have' for at opdatere sitet, eller 'have check' for at validere.")
 
 
