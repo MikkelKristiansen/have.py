@@ -878,6 +878,22 @@ def ny_plante():
     # ── pasning ───────────────────────────────────────────────────────────────
     pasning = (questionary.text("Pasning (Enter = ingen):").ask() or "").strip() or None
 
+    # ── skadedyr (plantespecifikke) ───────────────────────────────────────────
+    # Familie-baserede skadedyr arves automatisk via 'familie'; her vælges kun
+    # eventuelle plantespecifikke skadedyr ud over familien.
+    skadedyr_ids = []
+    from .indlaes import load_skadedyr
+    sk_db = load_skadedyr()
+    if sk_db and questionary.confirm(
+        "Tilføj plantespecifikke skadedyr? (familie-skadedyr kommer automatisk)",
+        default=False,
+    ).ask():
+        skadedyr_ids = questionary.checkbox(
+            "Vælg skadedyr:",
+            choices=[questionary.Choice(title=f"{s.get('navn', sid)} [{sid}]", value=sid)
+                     for sid, s in sk_db.items()],
+        ).ask() or []
+
     # ── foto ──────────────────────────────────────────────────────────────────
     foto = None
 
@@ -991,6 +1007,8 @@ def ny_plante():
     # Tom nabo-skabelon skrives med, så feltet er synligt i planter.yaml og
     # minder om at udfylde gode/dårlige naboer manuelt senere.
     plante["naboer"] = {"gode": [], "dårlige": []}
+    if skadedyr_ids:
+        plante["skadedyr_ids"] = skadedyr_ids
 
     gem_pid, yaml_blok = opret_plante(plante)
     print(f"\n✓ Plante gemt: {gem_pid}")
@@ -1065,12 +1083,21 @@ def ret_i_plante_yaml():
         ("noter",        "Noter"),
         ("pasning",      "Pasning"),
         ("foto",         "Foto"),
+        ("wikidata",     "Wikidata Q-id"),
+        ("naboer",       "Naboer (gode/dårlige)"),
+        ("skadedyr_ids", "Skadedyr (plantespecifikke)"),
     ]
 
     def _felt_label(felt, label):
         v = valgt_plante.get(felt)
         if felt == "foto" and isinstance(v, dict):
             return f"{label}  [{v.get('fil', '?')}]"
+        if felt == "naboer":
+            n = len((v or {}).get("gode") or []) + len((v or {}).get("dårlige") or [])
+            return f"{label}  [{n} nabo(er)]" if n else f"{label}  (ingen)"
+        if felt == "skadedyr_ids":
+            n = len(v or [])
+            return f"{label}  [{n}]" if n else f"{label}  (ingen)"
         if v is not None:
             return f"{label}  [{v}]"
         return f"{label}  (ikke sat)"
@@ -1316,6 +1343,80 @@ def ret_i_plante_yaml():
                 nyt_foto["forfatter"] = foto_forfatter
             if nyt_foto:
                 ændringer["foto"] = nyt_foto
+
+        elif felt == "wikidata":
+            ny_val = (questionary.text(
+                "Wikidata Q-id (fx 'Q25415', Enter = fjern):",
+                default=str(nuværende or ""),
+                validate=lambda v: (not v.strip()) or bool(_re.match(r"^Q\d+$", v.strip()))
+                    or "format: Q efterfulgt af tal",
+            ).ask() or "").strip()
+            ændringer["wikidata"] = ny_val or None
+
+        elif felt == "skadedyr_ids":
+            from .indlaes import load_skadedyr
+            sk_db = load_skadedyr()
+            if not sk_db:
+                print("  Ingen skadedyr i skadedyr.yaml — springer feltet over.")
+            else:
+                nuv_ids = set(nuværende or [])
+                valgt_sk = questionary.checkbox(
+                    "Plantespecifikke skadedyr (familie-skadedyr kommer automatisk):",
+                    choices=[
+                        questionary.Choice(
+                            title=f"{s.get('navn', sid)} [{sid}]",
+                            value=sid,
+                            checked=(sid in nuv_ids),
+                        )
+                        for sid, s in sk_db.items()
+                    ],
+                ).ask()
+                if valgt_sk is not None:
+                    ændringer["skadedyr_ids"] = valgt_sk or None
+
+        elif felt == "naboer":
+            nuv = nuværende if isinstance(nuværende, dict) else {}
+            resultat: dict = {}
+            for gruppe, etiket, ental in (
+                ("gode", "Gode naboer 👍", "god"),
+                ("dårlige", "Dårlige naboer 👎", "dårlig"),
+            ):
+                liste = [dict(n) for n in (nuv.get(gruppe) or [])]
+                print(f"  {etiket}:")
+                if liste:
+                    for n in liste:
+                        note = f" — {n.get('note')}" if n.get("note") else ""
+                        print(f"    • {n.get('plante_id')}{note}")
+                else:
+                    print("    (ingen)")
+                if liste and questionary.confirm(f"  Ryd alle {gruppe} naboer?", default=False).ask():
+                    liste = []
+                while questionary.confirm(f"  Tilføj en {ental} nabo?", default=False).ask():
+                    søg_n = (questionary.text("    Søg plante (navn/sort/id):").ask() or "").strip()
+                    if not søg_n:
+                        continue
+                    hits_n = _søg_planter(søg_n, db)
+                    if not hits_n:
+                        print(f"    Ingen planter matcher '{søg_n}'.")
+                        continue
+                    if len(hits_n) == 1:
+                        valgt_n = hits_n[0]
+                    else:
+                        valgt_n = questionary.select(
+                            "    Vælg:",
+                            choices=[questionary.Choice(title=_plante_label(p), value=p) for p in hits_n],
+                        ).ask()
+                        if valgt_n is None:
+                            continue
+                    note = (questionary.text("    Note (Enter = ingen):").ask() or "").strip()
+                    post = {"plante_id": valgt_n["id"]}
+                    if note:
+                        post["note"] = note
+                    liste.append(post)
+                    print(f"    ✓ tilføjet {valgt_n['id']}")
+                if liste:
+                    resultat[gruppe] = liste
+            ændringer["naboer"] = resultat or None
 
     if not ændringer:
         print("Ingen ændringer — afbrudt.")
