@@ -59,6 +59,71 @@ def kør_alt() -> None:
     print("✅  'have alt' færdig — hentet, gemt og deployet. 🌿")
 
 
+class GrupperetHelp(argparse.RawDescriptionHelpFormatter):
+    """Skjuler argparses auto-genererede subkommando-dump i top-niveau-hjælpen.
+
+    Den flade liste erstattes af den grupperede oversigt i `epilog` (KOMMANDO_OVERSIGT),
+    så `have --help` bliver til at overskue. Per-kommando-hjælp (`have <kmd> --help`)
+    bruger argparses standard og er upåvirket.
+    """
+    def _format_action(self, action):
+        if isinstance(action, argparse._SubParsersAction):
+            return ""
+        return super()._format_action(action)
+
+
+# Håndkurateret, grupperet kommandooversigt vist i `have --help`. Rækkefølge og
+# gruppering afspejler arbejdsgangen, ikke tilføjelsesrækkefølgen i koden. Interne
+# vedligeholdskommandoer (fx opdater-schema) udelades bevidst — de virker stadig.
+KOMMANDO_OVERSIGT = """\
+Kommandoer:
+
+  Projekt & sæson
+    init                Sæt aktuelle mappe op som haveprojekt
+    område              Opret nyt havområde i aktuelle projekt
+    nyt-år              Klargør ny sæson (fx: have nyt-år 2027)
+
+  Plantekatalog
+    ny-plante           Opret ny plante i planter.yaml
+    ret-i-plante-yaml   Ret en eksisterende plante i planter.yaml
+    ret-foto            Ret foto for en plante (planter.yaml) eller høne (dyr.yaml)
+    ny-frø              Tilføj ny frøpost til frø.yaml
+
+  Bede & placering
+    nyt-bed             Tilføj nyt bed til en zone-YAML-fil
+    plant-en-plante     Plant en plante i et eksisterende bed
+    ret-en-plante       Ret en zone/plante i et bed
+    riv-en-plante-op    Fjern en zone/plante fra et bed
+    ret-bed             Omfordel zone-bredder og tilføj nye zoner
+
+  Dagbog & data
+    ny-entry            Opret ny dagbogsentry
+    hent-inbox          Hent dagbogsindlæg fra have-inbox-webappen
+    hent-havefotos      Tjek og synkronisér almanakfotos i entries
+    hent-fotos          Hent plantefotos fra Wikimedia
+    hent-vejr           Hent historisk vejrdata fra Open-Meteo
+
+  Høns
+    hons                Hønsemodul — observationer og dyreregister (se: have hons --help)
+
+  Byg & udgiv
+    build               Generer alle HTML-sider (alias for: have uden argumenter)
+    watch               Filwatcher der genbygger ved ændringer (livereload)
+    check               Validér planter.yaml og krydsreferencér mod bede
+    deploy              Generer alle sider og upload til server
+    gem-data            Commit + push af havedata-repoet (data/)
+    alt                 Kør hele arbejdsgangen: hent-inbox → gem-data → deploy
+
+Kør 'have <kommando> --help' for detaljer om en enkelt kommando.
+
+Eksempler:
+  have build
+  have deploy
+  have check
+  have nyt-år 2027
+"""
+
+
 # ── Main ───────────────────────────────────────────────────────────────────────
 
 def main():
@@ -79,12 +144,12 @@ def main():
 
     parser = argparse.ArgumentParser(
         description="have — generer HTML + indeks for hele haven.",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="Eksempler:\n  have build\n  have deploy\n  have init\n  have check"
+        formatter_class=GrupperetHelp,
+        epilog=KOMMANDO_OVERSIGT,
     )
     parser.add_argument("--version", action="version",
                         version=f"have {__version__}")
-    subparsers = parser.add_subparsers(dest="kommando")
+    subparsers = parser.add_subparsers(dest="kommando", metavar="<kommando>")
 
     # Subkommando: init
     init_parser = subparsers.add_parser("init", help="Sæt aktuelle mappe op som haveprojekt")
@@ -178,8 +243,8 @@ def main():
     watch_parser = subparsers.add_parser("watch", help="Filwatcher der genbygger ved ændringer (livereload)")
     watch_parser.add_argument("--port", type=int, default=5500, help="Port til livereload-server (standard: 5500)")
 
-    # Standard: generer
-    parser.add_argument("yaml", nargs="*", default=None)
+    # Standard: generer (skjult fra --help; oversigten ligger i KOMMANDO_OVERSIGT)
+    parser.add_argument("yaml", nargs="*", default=None, help=argparse.SUPPRESS)
     argcomplete.autocomplete(parser)
     args = parser.parse_args()
 
