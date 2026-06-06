@@ -28,8 +28,15 @@
   .æg-stat { background: #fff8e1; border-left: 3px solid #e8b84b; padding: .5rem .85rem; border-radius: 0 6px 6px 0; min-width: 9rem; }
   .æg-stat strong { display: block; font-size: 1.4rem; font-weight: 700; color: #7b5c0d; line-height: 1.1; }
   .æg-stat span { font-size: .78rem; color: #999; }
-  .æg-graf { margin: .5rem 0 2rem; }
+  .æg-graf { margin: .5rem 0 1.25rem; }
   .æg-graf svg { width: 100%; max-width: 520px; display: block; }
+  .æg-tabel-wrapper { margin: 0 0 2rem; }
+  .æg-tabel-wrapper summary { cursor: pointer; font-size: .85rem; color: var(--grøn-mørk); padding: .25rem 0; user-select: none; }
+  .æg-tabel { width: 100%; max-width: 420px; border-collapse: collapse; font-size: .88rem; margin-top: .5rem; }
+  .æg-tabel th, .æg-tabel td { text-align: left; padding: .3rem .6rem; border-bottom: 1px solid #f0e9d2; }
+  .æg-tabel th { font-size: .72rem; text-transform: uppercase; letter-spacing: .04em; color: #7b5c0d; background: #fff8e1; }
+  .æg-tabel .antal { font-weight: 600; white-space: nowrap; }
+  .æg-tabel .note { color: #777; font-size: .82rem; }
 </style>
 {% endblock %}
 
@@ -110,12 +117,31 @@
   {% endif %}
 </div>
 <div class="æg-graf">{{ æg_data.svg | safe }}</div>
+{% set æg_entries = entries | selectattr('type', 'equalto', 'æglægning') | list %}
+{% if æg_entries %}
+<details class="æg-tabel-wrapper">
+  <summary>🥚 Vis alle registreringer ({{ æg_entries | length }})</summary>
+  <table class="æg-tabel">
+    <thead><tr><th>Dato</th><th>Antal</th><th>Note</th></tr></thead>
+    <tbody>
+    {% for e in æg_entries %}
+      <tr>
+        <td>{{ e.dato | dato_fmt }}</td>
+        <td class="antal">{{ e.æg }} æg</td>
+        <td class="note">{{ e.noter | default('') }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</details>
+{% endif %}
 {% endif %}
 
 <h2 id="log">Observationer</h2>
-{% if entries %}
+{% set obs_entries = entries | rejectattr('type', 'equalto', 'æglægning') | list %}
+{% if obs_entries %}
 <ul class="hons-log">
-  {% for e in entries %}
+  {% for e in obs_entries %}
   <li>
     <span class="ikon">{{ e.ikon }}</span>
     <span class="krop">
