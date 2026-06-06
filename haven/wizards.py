@@ -32,7 +32,7 @@ from .deploy import *            # noqa: F401,F403  _opdater_haven_yaml/_opdater
 
 __all__ = [
     "init_projekt", "nyt_område", "nyt_år",
-    "opret_entry", "opret_hons_entry", "ny_entry",
+    "opret_entry", "opret_hons_entry", "ny_entry", "ret_entry",
     "opret_plante", "ny_plante", "ret_i_plante_yaml", "ret_foto", "nyt_bed",
     "hons_ny_høne", "hons_ny_obs", "plant_en_plante",
     "riv_en_plante_op", "ret_en_plante", "ret_bed",
@@ -560,38 +560,45 @@ def ny_entry():
             sys.exit(0)
 
     yaml_filer = _find_yaml_filer()
-    zoner = []
+    zoner = []  # (html_navn, titel, er_husdyr)
     for yaml_sti in yaml_filer:
         if not os.path.exists(yaml_sti):
             continue
         meta = load_yaml(yaml_sti).get("meta", {})
         html_navn = meta.get("html_navn")
         if html_navn:
-            zoner.append((html_navn, meta.get("titel", html_navn)))
+            er_husdyr = meta.get("type") == "husdyr"
+            zoner.append((html_navn, meta.get("titel", html_navn), er_husdyr))
 
     zone = questionary.select(
         "Zone:",
         choices=[
             questionary.Choice(title=f"{zone_titel} ({zone_id})", value=zone_id)
-            for zone_id, zone_titel in zoner
+            for zone_id, zone_titel, _ in zoner
         ],
     ).ask()
     if zone is None:
         sys.exit(0)
 
-    plante_data = load_yaml(PLANTER_FIL)
-    planter = plante_data if isinstance(plante_data, list) else plante_data.get("planter", [])
-    plante_choices = [
-        questionary.Choice(title=f"{p.get('navn', '?')} ({p.get('id', '?')})", value=p.get("id"))
-        for p in sorted(planter, key=lambda p: p.get("navn", "").lower())
-    ]
-    valgte_planter = questionary.checkbox(
-        "Planter (valgfri — brug mellemrum til at vælge, Enter for at bekræfte):",
-        choices=plante_choices,
-    ).ask()
-    if valgte_planter is None:
-        sys.exit(0)
-    plante_id = valgte_planter  # liste (evt. tom)
+    zone_er_husdyr = next((hd for zid, _, hd in zoner if zid == zone), False)
+
+    if zone_er_husdyr:
+        hons_ny_obs(dato=dato_input)
+        return
+    else:
+        plante_data = load_yaml(PLANTER_FIL)
+        planter = plante_data if isinstance(plante_data, list) else plante_data.get("planter", [])
+        plante_choices = [
+            questionary.Choice(title=f"{p.get('navn', '?')} ({p.get('id', '?')})", value=p.get("id"))
+            for p in sorted(planter, key=lambda p: p.get("navn", "").lower())
+        ]
+        valgte_planter = questionary.checkbox(
+            "Planter (valgfri — brug mellemrum til at vælge, Enter for at bekræfte):",
+            choices=plante_choices,
+        ).ask()
+        if valgte_planter is None:
+            sys.exit(0)
+        plante_id = valgte_planter
 
     tekst = (questionary.text(
         "Tekst:",
@@ -610,6 +617,407 @@ def ny_entry():
 
     sti = opret_entry(dato_input, zone, tekst, plante_id, foto_kilde)
     print(f"✓ Entry gemt: {sti}")
+
+
+# ── ret-entry ─────────────────────────────────────────────────────────────────
+
+def _hons_entry_label(data: dict) -> str:
+    """Kort beskrivende linje til listet valg af en hønse-entry."""
+    t = data.get("type", "?")
+    cfg = HONS_TYPER.get(t, {})
+    ikon = cfg.get("ikon", "●")
+    label = cfg.get("label", t)
+    dato = data.get("dato", "?")
+    ekstra = ""
+    if t == "æglægning":
+        ekstra = f" — {data.get('æg', '?')} æg"
+    elif t == "ruge-start":
+        ekstra = f" — {data.get('æg_antal', '?')} æg til rugning"
+    elif t == "foderkøb":
+        dele = []
+        if "mængde_kg" in data:
+            dele.append(f"{data['mængde_kg']} kg")
+        if "foder_type" in data:
+            dele.append(str(data["foder_type"]))
+        if dele:
+            ekstra = " — " + " ".join(dele)
+    elif t == "sundhedsobs":
+        obs = data.get("observation", "")
+        if obs:
+            ekstra = f" — {obs[:40]}"
+    elif t == "dødsfald":
+        if data.get("høne"):
+            ekstra = f" — {data['høne']}"
+    elif t == "fjerfældning":
+        if data.get("fase"):
+            ekstra = f" — {data['fase']}"
+    elif t == "note":
+        noter = data.get("noter", "")
+        if noter:
+            ekstra = f" — {noter[:40]}"
+    return f"{dato}  {ikon} {label}{ekstra}"
+
+
+def _tilbyd_gem_data():
+    """Spørg om brugeren vil commit + pushe havedata efter en rettelse."""
+    import questionary
+    from .deploy import gem_data as _gem_data
+    if questionary.confirm(
+        "Kør gem-data (commit + push af havedata)?", default=False
+    ).ask():
+        _gem_data()
+
+
+def _ret_hons_entry():
+    """Wizard til at rette i en eksisterende hønse-entry."""
+    import io
+    import re as _re
+    import questionary
+    from ruamel.yaml import YAML as RuamelYAML
+
+    hons_mappe = DATA_MAPPE / "entries" / "hons"
+    if not hons_mappe.exists():
+        print("Ingen hønse-entries fundet.")
+        return
+
+    filer = sorted(hons_mappe.glob("*.yaml"), reverse=True)
+    if not filer:
+        print("Ingen hønse-entries fundet.")
+        return
+
+    entries = []
+    for entry_sti in filer:
+        try:
+            with open(entry_sti, encoding="utf-8") as fh:
+                data = yaml.safe_load(fh)
+            if isinstance(data, dict):
+                entries.append((entry_sti, data))
+        except Exception:
+            pass
+
+    if not entries:
+        print("Ingen hønse-entries kunne læses.")
+        return
+
+    valg = questionary.select(
+        "Vælg entry at rette:",
+        choices=[
+            questionary.Choice(title=_hons_entry_label(d), value=(p, d))
+            for p, d in entries
+        ],
+    ).ask()
+    if valg is None:
+        sys.exit(0)
+
+    entry_sti, data = valg
+    t = data.get("type", "")
+
+    def _heltal(v):
+        return v.strip().isdigit() or "Skal være et heltal"
+
+    def _tal(v):
+        if not v.strip():
+            return True
+        try:
+            float(v.replace(",", "."))
+            return True
+        except ValueError:
+            return "Skal være et tal"
+
+    ny = dict(data)
+
+    if t == "æglægning":
+        antal = questionary.text(
+            "Antal æg:", default=str(ny.get("æg", 0)), validate=_heltal
+        ).ask()
+        if antal is None:
+            sys.exit(0)
+        ny["æg"] = int(antal)
+
+    elif t == "ruge-start":
+        db = byg_dyr_db()
+        aktive = [d for d in db.values() if d.get("aktiv", True)]
+        if aktive:
+            labels = {f"{_dyr_label(d)} [{d['id']}]": d["id"] for d in aktive}
+            nuv_høne = ny.get("høne", "")
+            # find nøglen der svarer til nuværende høne-id
+            nuv_label = next((k for k, v in labels.items() if v == nuv_høne), "")
+            høne_valg = questionary.autocomplete(
+                "Høne (rugende, tom = ingen):",
+                choices=list(labels.keys()),
+                default=nuv_label,
+                validate=lambda v: True if not v.strip() else (v in labels)
+                    or "Vælg en høne fra listen (Tab for forslag)",
+            ).ask()
+            if høne_valg is None:
+                sys.exit(0)
+            stripped = høne_valg.strip()
+            if stripped:
+                ny["høne"] = labels.get(stripped, stripped)
+            else:
+                ny.pop("høne", None)
+
+        antal = questionary.text(
+            "Antal æg lagt til rugning:",
+            default=str(ny.get("æg_antal", 0)),
+            validate=_heltal,
+        ).ask()
+        if antal is None:
+            sys.exit(0)
+        ny["æg_antal"] = int(antal)
+
+        nuv_klæk = str(ny.get("forventet_klæk", ""))
+        klæk = questionary.text(
+            "Forventet klæk (YYYY-MM-DD):",
+            default=nuv_klæk,
+            validate=lambda v: bool(_re.match(r"^\d{4}-\d{2}-\d{2}$", v))
+                or "Ugyldigt datoformat",
+        ).ask()
+        if klæk is None:
+            sys.exit(0)
+        ny["forventet_klæk"] = klæk
+
+    elif t == "foderkøb":
+        foder = questionary.text("Foder-type:", default=ny.get("foder_type", "")).ask()
+        if foder is None:
+            sys.exit(0)
+        if foder.strip():
+            ny["foder_type"] = foder.strip()
+        else:
+            ny.pop("foder_type", None)
+
+        mængde = questionary.text(
+            "Mængde i kg:", default=str(ny.get("mængde_kg", "")), validate=_tal
+        ).ask()
+        if mængde is None:
+            sys.exit(0)
+        if mængde.strip():
+            tal = float(mængde.replace(",", "."))
+            ny["mængde_kg"] = int(tal) if tal == int(tal) else tal
+        else:
+            ny.pop("mængde_kg", None)
+
+        pris = questionary.text(
+            "Pris i kr:", default=str(ny.get("pris", "")), validate=_tal
+        ).ask()
+        if pris is None:
+            sys.exit(0)
+        if pris.strip():
+            tal = float(pris.replace(",", "."))
+            ny["pris"] = int(tal) if tal == int(tal) else tal
+        else:
+            ny.pop("pris", None)
+
+        butik = questionary.text("Butik:", default=ny.get("butik", "")).ask()
+        if butik is None:
+            sys.exit(0)
+        if butik.strip():
+            ny["butik"] = butik.strip()
+        else:
+            ny.pop("butik", None)
+
+    elif t == "sundhedsobs":
+        obs = questionary.text(
+            "Observation:",
+            default=ny.get("observation", ""),
+            validate=lambda v: bool(v.strip()) or "Observation er påkrævet",
+        ).ask()
+        if not obs:
+            sys.exit(0)
+        ny["observation"] = obs.strip()
+
+        handling = questionary.text("Handling:", default=ny.get("handling", "")).ask()
+        if handling is None:
+            sys.exit(0)
+        if handling.strip():
+            ny["handling"] = handling.strip()
+        else:
+            ny.pop("handling", None)
+
+    elif t == "dødsfald":
+        årsag = questionary.text(
+            "Årsag:", default=ny.get("årsag", "ukendt")
+        ).ask()
+        if årsag is None:
+            sys.exit(0)
+        if årsag.strip():
+            ny["årsag"] = årsag.strip()
+        else:
+            ny.pop("årsag", None)
+
+    elif t == "fjerfældning":
+        fase = questionary.select(
+            "Fase:",
+            choices=["start", "slut"],
+            default=ny.get("fase", "start"),
+        ).ask()
+        if fase is None:
+            sys.exit(0)
+        ny["fase"] = fase
+
+    # Noter — fælles for alle typer
+    noter = questionary.text("Noter:", default=ny.get("noter", "") or "").ask()
+    if noter is None:
+        sys.exit(0)
+    if noter.strip():
+        ny["noter"] = noter.strip()
+    else:
+        ny.pop("noter", None)
+
+    # Preview
+    ry = RuamelYAML()
+    ry.default_flow_style = False
+    ry.width = 120
+    ry.allow_unicode = True
+    buf = io.StringIO()
+    ry.dump(ny, buf)
+    print(f"\n── Entry-preview ({entry_sti.name}) ─────────────────────────────")
+    print(buf.getvalue().rstrip())
+    print("──────────────────────────────────────────────────────────\n")
+
+    if not questionary.confirm("Gem rettelserne?", default=True).ask():
+        print("Afbrudt — ingen ændringer gemt.")
+        sys.exit(0)
+
+    with open(entry_sti, "w", encoding="utf-8") as fh:
+        ry.dump(ny, fh)
+    print(f"✓ Entry opdateret: {entry_sti}")
+
+    from .byg import generer_alle
+    generer_alle()
+    _tilbyd_gem_data()
+
+
+def _ret_dagbog_entry():
+    """Wizard til at rette i en eksisterende dagbogsentry (.md med YAML-frontmatter)."""
+    import questionary
+
+    sektioner_mappe = DATA_MAPPE / "entries" / "sektioner"
+    if not sektioner_mappe.exists():
+        print("Ingen dagbogsindlæg fundet.")
+        return
+
+    filer = sorted(sektioner_mappe.glob("*.md"), reverse=True)
+    if not filer:
+        print("Ingen dagbogsindlæg fundet.")
+        return
+
+    def _parse_md(p: Path):
+        tekst = p.read_text(encoding="utf-8")
+        dele = tekst.split("---", 2)
+        if len(dele) < 3:
+            return {}, tekst
+        try:
+            fm = yaml.safe_load(dele[1]) or {}
+        except Exception:
+            fm = {}
+        return fm, dele[2].lstrip("\n")
+
+    choices = []
+    for p in filer:
+        fm, krop = _parse_md(p)
+        dato = fm.get("dato", "?")
+        zone = fm.get("zone", "?")
+        preview = krop.strip()[:50].replace("\n", " ")
+        choices.append(questionary.Choice(
+            title=f"{dato}  {zone} — {preview}",
+            value=p,
+        ))
+
+    if not choices:
+        print("Ingen dagbogsindlæg kunne læses.")
+        return
+
+    valgt = questionary.select("Vælg entry at rette:", choices=choices).ask()
+    if valgt is None:
+        sys.exit(0)
+
+    fm, krop = _parse_md(valgt)
+
+    ny_tekst = questionary.text(
+        "Tekst:",
+        default=krop.strip(),
+        validate=lambda v: bool(v.strip()) or "Tekst er påkrævet",
+    ).ask()
+    if not ny_tekst:
+        sys.exit(0)
+
+    plante_data = load_yaml(PLANTER_FIL)
+    planter = plante_data if isinstance(plante_data, list) else plante_data.get("planter", [])
+    nuv_ids = fm.get("plante_id") or []
+    if isinstance(nuv_ids, str):
+        nuv_ids = [nuv_ids]
+
+    plante_choices = [
+        questionary.Choice(
+            title=f"{p.get('navn', '?')} ({p.get('id', '?')})",
+            value=p.get("id"),
+            checked=p.get("id") in nuv_ids,
+        )
+        for p in sorted(planter, key=lambda p: p.get("navn", "").lower())
+    ]
+    nye_planter = questionary.checkbox(
+        "Planter (mellemrum = vælg, Enter = bekræft):",
+        choices=plante_choices,
+    ).ask()
+    if nye_planter is None:
+        sys.exit(0)
+
+    ny_fm = dict(fm)
+    if not nye_planter:
+        ny_fm.pop("plante_id", None)
+    elif len(nye_planter) == 1:
+        ny_fm["plante_id"] = nye_planter[0]
+    else:
+        ny_fm["plante_id"] = nye_planter
+
+    # Serialisér frontmatter manuelt for at bevare felternes rækkefølge
+    fm_linjer = ["---"]
+    for k, v in ny_fm.items():
+        if isinstance(v, list):
+            fm_linjer.append(f"{k}:")
+            for item in v:
+                fm_linjer.append(f"  - {item}")
+        else:
+            fm_linjer.append(f"{k}: {v}")
+    fm_linjer.append("---")
+
+    nyt_indhold = "\n".join(fm_linjer) + "\n\n" + ny_tekst.strip() + "\n"
+
+    print(f"\n── Entry-preview ({valgt.name}) ──────────────────────────────────")
+    print(nyt_indhold.rstrip())
+    print("──────────────────────────────────────────────────────────\n")
+
+    if not questionary.confirm("Gem rettelserne?", default=True).ask():
+        print("Afbrudt — ingen ændringer gemt.")
+        sys.exit(0)
+
+    valgt.write_text(nyt_indhold, encoding="utf-8")
+    print(f"✓ Entry opdateret: {valgt}")
+
+    from .byg import generer_alle
+    generer_alle()
+    _tilbyd_gem_data()
+
+
+def ret_entry():
+    """Interaktiv wizard til at rette i en eksisterende dagbogs- eller hønse-entry."""
+    import questionary
+
+    type_valg = questionary.select(
+        "Hvilken type entry vil du rette?",
+        choices=[
+            questionary.Choice("🐔 Hønseobservation", value="hons"),
+            questionary.Choice("📖 Dagbogsentry", value="dagbog"),
+        ],
+    ).ask()
+    if type_valg is None:
+        sys.exit(0)
+
+    if type_valg == "hons":
+        _ret_hons_entry()
+    else:
+        _ret_dagbog_entry()
 
 
 def opret_plante(plante_dict: dict) -> str:
@@ -1944,8 +2352,11 @@ def hons_ny_høne():
     print(f"✓ Høne '{nyt_id}' tilføjet til {DYR_FIL}")
 
 
-def hons_ny_obs():
-    """Wizard: registrér en hønse-observation som YAML-entry i entries/hons/."""
+def hons_ny_obs(dato: str = None):
+    """Wizard: registrér en hønse-observation som YAML-entry i entries/hons/.
+
+    dato: hvis angivet springes dato-spørgsmålet over (bruges når ny_entry allerede har indsamlet det).
+    """
     import questionary
     import re as _re
     from ruamel.yaml import YAML as RuamelYAML
@@ -1959,15 +2370,16 @@ def hons_ny_obs():
     if not valgt_type:
         sys.exit(0)
 
-    # 2. Dato
-    i_dag = datetime.date.today().isoformat()
-    dato = questionary.text(
-        "Dato:",
-        default=i_dag,
-        validate=lambda v: bool(_re.match(r"^\d{4}-\d{2}-\d{2}$", v)) or f"Ugyldigt datoformat: {v!r}",
-    ).ask()
-    if not dato:
-        sys.exit(0)
+    # 2. Dato (springes over hvis allerede indsamlet af kalderen)
+    if dato is None:
+        i_dag = datetime.date.today().isoformat()
+        dato = questionary.text(
+            "Dato:",
+            default=i_dag,
+            validate=lambda v: bool(_re.match(r"^\d{4}-\d{2}-\d{2}$", v)) or f"Ugyldigt datoformat: {v!r}",
+        ).ask()
+        if not dato:
+            sys.exit(0)
 
     db = byg_dyr_db()
     aktive = [d for d in db.values() if d.get("aktiv", True)]

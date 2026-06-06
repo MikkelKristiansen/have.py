@@ -31,7 +31,7 @@ from .byg import generer_alle
 from .deploy import upload, upload_ftp, gem_data
 from .vejr import hent_vejr
 from .wizards import (
-    init_projekt, nyt_område, nyt_år, ny_entry, ny_plante, ret_i_plante_yaml,
+    init_projekt, nyt_område, nyt_år, ny_entry, ret_entry, ny_plante, ret_i_plante_yaml,
     ret_foto, nyt_bed, plant_en_plante, riv_en_plante_op, ret_en_plante, ret_bed,
     hons_ny_høne, hons_ny_obs, wizard_ny_frø,
 )
@@ -98,6 +98,7 @@ Kommandoer:
 
   Dagbog & data
     ny-entry            Opret ny dagbogsentry
+    ret-entry           Ret en eksisterende dagbogs- eller hønse-entry
     hent-inbox          Hent dagbogsindlæg fra have-inbox-webappen
     hent-havefotos      Tjek og synkronisér almanakfotos i entries
     hent-fotos          Hent plantefotos fra Wikimedia
@@ -194,6 +195,9 @@ def main():
 
     # Subkommando: ny-entry
     subparsers.add_parser("ny-entry", help="Opret ny dagbogsentry (interaktiv wizard)")
+
+    # Subkommando: ret-entry
+    subparsers.add_parser("ret-entry", help="Ret en eksisterende dagbogs- eller hønse-entry (interaktiv wizard)")
 
     # Subkommando: plant-en-plante
     subparsers.add_parser("plant-en-plante", help="Plant en plante i et eksisterende bed (interaktiv wizard)")
@@ -295,6 +299,10 @@ def main():
 
     if args.kommando == "ny-entry":
         ny_entry()
+        sys.exit(0)
+
+    if args.kommando == "ret-entry":
+        ret_entry()
         sys.exit(0)
 
     if args.kommando == "plant-en-plante":
