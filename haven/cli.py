@@ -37,12 +37,16 @@ from .wizards import (
 )
 
 
-def kør_alt() -> None:
+def kør_alt(lokal: bool = False) -> None:
     """Kør hele den daglige arbejdsgang i rækkefølge: hent nye indlæg fra inboxen,
     gem havedata-repoet, og byg + deploy sitet. Et fejlende trin stopper ikke de
-    øvrige (afslutter dog med fejlkode hvis noget gik galt)."""
+    øvrige (afslutter dog med fejlkode hvis noget gik galt).
+
+    lokal=True læser inboxen direkte fra disk (--lokal) — bruges når have kører på
+    samme maskine som have-inbox (fx headless auto-import på RPi5)."""
+    hent_inbox = ["have", "hent-inbox", "--skriv"] + (["--lokal"] if lokal else [])
     trin = [
-        ("📥  Henter dagbogsindlæg fra inboxen", ["have", "hent-inbox", "--skriv"]),
+        ("📥  Henter dagbogsindlæg fra inboxen", hent_inbox),
         ("💾  Gemmer havedata (commit + push)",   ["have", "gem-data"]),
         ("🚀  Bygger og deployer",                ["have", "deploy"]),
     ]
@@ -189,6 +193,8 @@ def main():
     _p_inbox = subparsers.add_parser("hent-inbox", help="Hent dagbogsindlæg fra have-inbox-webappen (SFTP) og behandl dem")
     _p_inbox.add_argument("--skriv", action="store_true",
                           help="Importér til data/, byg site og ryd serverens inbox (uden flaget: dry-run)")
+    _p_inbox.add_argument("--lokal", action="store_true",
+                          help="Læs inboxen lokalt fra disk i stedet for via SFTP (samme maskine som have-inbox)")
 
     # Subkommando: nyt-bed
     subparsers.add_parser("nyt-bed", help="Tilføj nyt bed til en zone-YAML-fil (interaktiv wizard)")
@@ -229,7 +235,10 @@ def main():
     )
 
     # Subkommando: alt — kør hele arbejdsgangen
-    subparsers.add_parser("alt", help="Kør hele arbejdsgangen: hent-inbox → gem-data → deploy")
+    _p_alt = subparsers.add_parser("alt", help="Kør hele arbejdsgangen: hent-inbox → gem-data → deploy")
+    _p_alt.add_argument("--lokal", action="store_true",
+                        help="Læs inboxen lokalt fra disk i stedet for via SFTP "
+                             "(når have kører på samme maskine som have-inbox, fx RPi5)")
 
     # Subkommando: gem-data
     _p_gem = subparsers.add_parser("gem-data", help="Commit + push af havedata-repoet (data/)")
@@ -332,7 +341,7 @@ def main():
         sys.exit(0)
 
     if args.kommando == "alt":
-        kør_alt()
+        kør_alt(lokal=args.lokal)
         sys.exit(0)
 
     if args.kommando == "gem-data":

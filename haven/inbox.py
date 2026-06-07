@@ -19,6 +19,7 @@ handler-lagene, ikke fra cli — opret-kerner fra wizards, byg-orkestratoren fra
 fil-opdagelse fra indlaes og lftp-quoting fra deploy.
 """
 import argparse
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -77,6 +78,28 @@ def ryd_på_server(navne: list[str]) -> int:
     cmds = [f"open {_lftp_q(_SFTP_URL)}"]
     cmds += [f"rm -r {_lftp_q(f'{INBOX_STI}/{navn}')}" for navn in navne]
     return _kør_lftp(cmds)
+
+
+def kopiér_lokalt(kilde: Path, lokal: Path) -> int:
+    """--lokal: kopiér inbox-undermapperne fra disk til arbejdsmappen (i stedet
+    for at hente dem via SFTP). Behandling sker på kopien, så den live inbox ikke
+    muteres mens vi læser. Returnerer 0 (parallel til hent_ned)."""
+    for d in sorted(kilde.iterdir()):
+        if d.is_dir():
+            shutil.copytree(d, lokal / d.name)
+    return 0
+
+
+def ryd_lokalt(navne: list[str]) -> int:
+    """--lokal: fjern de behandlede indlægs-mapper direkte fra den lokale inbox."""
+    feil = 0
+    for navn in navne:
+        try:
+            shutil.rmtree(Path(INBOX_STI) / navn)
+        except OSError as e:
+            print(f"  ⚠️  kunne ikke fjerne {navn}: {e}")
+            feil += 1
+    return 1 if feil else 0
 
 
 def _find_foto(mappe: Path, data: dict):
@@ -371,9 +394,22 @@ def main():
     ap.add_argument("--skriv", action="store_true",
                     help="Importér til data/, byg site og ryd inboxen på serveren "
                          "(uden flaget: dry-run der kun viser indholdet).")
+    ap.add_argument("--lokal", action="store_true",
+                    help="Læs inbox-mappen direkte fra disk (når have kører på samme "
+                         "maskine som have-inbox, fx RPi5) i stedet for via SFTP, og "
+                         "ryd lokalt. Kræver ingen SSH-nøgle/agent — egnet til headless "
+                         "auto-import.")
     args = ap.parse_args()
 
-    if not (INBOX_HOST and INBOX_BRUGER and INBOX_STI):
+    if args.lokal:
+        if not INBOX_STI:
+            print("❌ Mangler inbox.sti i haven.yaml (kræves til --lokal).")
+            sys.exit(1)
+        if not Path(INBOX_STI).is_dir():
+            print(f"❌ Lokal inbox-sti findes ikke: {INBOX_STI}")
+            sys.exit(1)
+        print(f"📥 Læser lokal inbox: {INBOX_STI}")
+    elif not (INBOX_HOST and INBOX_BRUGER and INBOX_STI):
         print("❌ Mangler inbox-konfiguration i haven.yaml.\n"
               "   Tilføj fx:\n"
               "     inbox:\n"
@@ -381,11 +417,13 @@ def main():
               "       bruger: brugernavn\n"
               "       sti: /home/yunohost.app/have_inbox/inbox")
         sys.exit(1)
+    else:
+        print(f"📥 Henter inbox fra {INBOX_BRUGER}@{INBOX_HOST}:{INBOX_STI}")
 
-    print(f"📥 Henter inbox fra {INBOX_BRUGER}@{INBOX_HOST}:{INBOX_STI}")
     with tempfile.TemporaryDirectory(prefix="have-inbox-") as tmp:
         lokal = Path(tmp)
-        if hent_ned(lokal) != 0:
+        hentet = kopiér_lokalt(Path(INBOX_STI), lokal) if args.lokal else hent_ned(lokal)
+        if hentet != 0:
             print("❌ Kunne ikke hente fra serveren (tjek SSH-adgang og sti).")
             sys.exit(1)
 
@@ -409,12 +447,14 @@ def main():
         print("\n🔨 Bygger site...")
         generer_alle(_find_yaml_filer())
 
-        print("🧹 Rydder inbox på serveren...")
-        if ryd_på_server(behandlede) == 0:
+        hvor = "lokalt" if args.lokal else "på serveren"
+        print(f"🧹 Rydder inbox {hvor}...")
+        ryddet = ryd_lokalt(behandlede) if args.lokal else ryd_på_server(behandlede)
+        if ryddet == 0:
             print(f"\n✅ {len(behandlede)} indlæg importeret, site bygget og inbox ryddet.")
         else:
             print(f"\n⚠️  {len(behandlede)} indlæg importeret og site bygget, men oprydningen "
-                  f"på serveren fejlede — fjern mapperne manuelt.")
+                  f"{hvor} fejlede — fjern mapperne manuelt.")
             sys.exit(1)
 
 

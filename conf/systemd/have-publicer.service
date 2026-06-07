@@ -1,0 +1,13 @@
+[Unit]
+Description=Importér have-inbox-indlæg, gem havedata og deploy haven
+After=network-online.target
+Wants=network-online.target
+# Sikkerhedsnet: hvis path-unit'en skulle gentrigge i en løkke (fx oprydning
+# fejler gentagne gange), så stop efter 5 starter på 5 min frem for at hamre.
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+Type=oneshot
+ExecStart=%h/lokalmidler/have.py/scripts/have-publicer.sh
+# .env (HAVE_SFTP_KODE/HAVE_FTP_KODE) læses af have selv fra projektroden.

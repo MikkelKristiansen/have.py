@@ -5,6 +5,17 @@ Format følger [Keep a Changelog](https://keepachangelog.com/da/1.0.0/).
 
 ## [Unreleased]
 
+### Tilføjet
+- **`have hent-inbox --lokal`** (også `have alt --lokal`) — læser have-inbox'
+  inbox-mappe direkte fra disk og rydder lokalt, i stedet for via SFTP-loopback.
+  Kræver hverken SSH-nøgle eller agent, så det virker headless. Beregnet til når
+  have.py kører på samme maskine som have-inbox (fx en RPi5).
+- **Auto-publicering på serveren** — `scripts/have-publicer.sh` (flock-beskyttet
+  wrapper om `have alt --lokal`) + systemd `.path`/`.service`-units i
+  `conf/systemd/`. En inotify-overvåget inbox-mappe udløser import → gem-data →
+  deploy, så telefon-indlæg publiceres automatisk uden laptoppen. Se
+  `conf/systemd/README.md`.
+
 ## [1.2.0] — 2026-06-03
 
 ### Tilføjet

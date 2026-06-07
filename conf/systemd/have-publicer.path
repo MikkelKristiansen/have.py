@@ -1,0 +1,11 @@
+[Unit]
+Description=Overvåg have-inbox' inbox-mappe og udløs auto-publicering
+
+[Path]
+# inotify på den lokale inbox-mappe — udløses når et nyt indlæg lander.
+# Edge-trigget (PathModified), så en mislykket oprydning ikke hot-looper.
+PathModified=/home/yunohost.app/have_inbox/inbox
+Unit=have-publicer.service
+
+[Install]
+WantedBy=default.target
