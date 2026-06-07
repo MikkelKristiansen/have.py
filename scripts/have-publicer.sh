@@ -28,4 +28,7 @@ if [ "${_HAVE_PUBLICER_LOCKED:-}" != "1" ]; then
 fi
 
 cd "$HAVE_DIR"
+# `have alt` kalder internt `have hent-inbox`/`gem-data`/`deploy` via PATH, så
+# venv'ens bin/ skal være på PATH (systemd starter os uden aktiveret venv).
+export PATH="$HAVE_DIR/.venv/bin:$PATH"
 exec "$HAVE_DIR/.venv/bin/have" alt --lokal
