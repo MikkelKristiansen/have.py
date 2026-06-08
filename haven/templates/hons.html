@@ -69,12 +69,12 @@
 {% if dyr %}
 <table class="hons-tabel">
   <thead>
-    <tr><th>Race</th><th>Farve / mærke</th><th>Fødselsdato</th><th>Status</th></tr>
+    <tr><th>Navn</th><th>Farve / mærke</th><th>Fødselsdato</th><th>Status</th></tr>
   </thead>
   <tbody>
   {% for d in dyr %}
     <tr class="{{ 'udgaaet' if not d.get('aktiv', True) else 'aktiv' }}">
-      <td>{{ d.race | default('?') }}</td>
+      <td>{{ d.navn | default(d.race) | default('?', true) }}</td>
       <td>{{ d.farve | default('—') }}</td>
       <td>{{ d.get('fødselsdato') | default('—', true) }}</td>
       <td>

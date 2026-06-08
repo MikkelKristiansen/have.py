@@ -1,6 +1,6 @@
 from datetime import date
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class Nabo(BaseModel):
@@ -54,6 +54,9 @@ class Plante(BaseModel):
 
 
 class Høne(BaseModel):
+    # extra="forbid" fanger stavefejl i felter (fx 'Foto' med stort F) i have check,
+    # som ellers ignoreres tavst og får fotoet til at forsvinde uden advarsel.
+    model_config = ConfigDict(extra="forbid")
     id:          str
     navn:        str | None = None
     race:        str | None = None
