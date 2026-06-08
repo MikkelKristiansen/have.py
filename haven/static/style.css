@@ -894,6 +894,9 @@ td { border: 1px solid var(--kant-lys); padding: 6px 5px; text-align: center; }
   display: block;
 }
 
+/* Hønsekort: portræt i stedet for landskab — damerne foretrækker stående portræt */
+.hone-kort .plante-foto { aspect-ratio: 3 / 4; }
+
 /* Klik-til-større: checkbox-toggle åbner overlay */
 .foto-toggle:checked + .plante-foto {
   position: fixed;

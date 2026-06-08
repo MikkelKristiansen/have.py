@@ -15,7 +15,7 @@
 
 {# ── Makro: ét hønekort ──────────────────────────────────────────────────── #}
 {% macro høne_kort(h) %}
-  <article id="høne-{{ h.id }}" class="plante-kort {% if h.foto %}har-foto{% endif %}{% if not h.aktiv %} udgaaet{% endif %}">
+  <article id="høne-{{ h.id }}" class="plante-kort hone-kort {% if h.foto %}har-foto{% endif %}{% if not h.aktiv %} udgaaet{% endif %}">
 
     {% if h.foto %}
     <div class="plante-foto">
