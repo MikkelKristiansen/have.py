@@ -104,14 +104,6 @@ def _regenerer_gl_år_sider(gl_år: int, år_liste: list, aktivt_år: int,
         entries_kilde = fotos_basis / "entries" / str(gl_år)
         if entries_kilde.exists():
             _sync_mappe(entries_kilde, gl_fotos_dest / "entries")
-        for fil in fotos_basis.iterdir():
-            if fil.is_file():
-                dst = gl_fotos_dest / fil.name
-                if not dst.exists() or fil.stat().st_mtime > dst.stat().st_mtime:
-                    import shutil
-                    gl_fotos_dest.mkdir(exist_ok=True)
-                    shutil.copy2(fil, dst)
-                    os.chmod(dst, 0o644)
 
 
 def generer_alle(yaml_filer=None) -> list:
@@ -397,6 +389,22 @@ def generer_alle(yaml_filer=None) -> list:
                     shutil.rmtree(_stale_dyr)
                     print(f"🗑  Fjernet forældet: {_stale_dyr}")
 
+        # Baggrundsbilleder er tidløse — kopieres til out/fotos/baggrunde/ (rod-niveau).
+        # Ingen thumbnails: de bruges kun som hero/ikon-baggrunde.
+        baggrunde_kilde = fotos_basis / "baggrunde"
+        if baggrunde_kilde.exists():
+            baggrunde_dest = OUT_MAPPE.parent / "fotos" / "baggrunde"
+            n = _sync_mappe(baggrunde_kilde, baggrunde_dest)
+            if n > 0:
+                print(f"✅ Baggrundsfotos synkroniseret: {n} filer → {baggrunde_dest}")
+            else:
+                print(f"ℹ️  Baggrundsfotos uændrede: {baggrunde_dest}")
+            for _gl_år in år_liste:
+                _stale_bg = OUT_MAPPE.parent / str(_gl_år) / "fotos" / "baggrunde"
+                if _stale_bg.exists():
+                    shutil.rmtree(_stale_bg)
+                    print(f"🗑  Fjernet forældet: {_stale_bg}")
+
         # Entryfotos er årstalsbestemte — kopieres til out/{år}/fotos/entries/
         fotos_dest = OUT_MAPPE / "fotos"
         fotos_dest.mkdir(exist_ok=True)
@@ -408,11 +416,6 @@ def generer_alle(yaml_filer=None) -> list:
             shutil.copytree(entries_kilde, entries_dest)
         else:
             entries_dest.mkdir(exist_ok=True)
-        for fil in fotos_basis.iterdir():
-            if fil.is_file():
-                dst = fotos_dest / fil.name
-                shutil.copy2(fil, dst)
-                os.chmod(dst, 0o644)
         for rod, _, filer_i_rod in os.walk(fotos_dest):
             for fil in filer_i_rod:
                 os.chmod(os.path.join(rod, fil), 0o644)
