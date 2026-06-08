@@ -12,13 +12,13 @@ import sys
 
 from .config import sti
 from .kontekst import (
-    _config, OUT_MAPPE,
+    _config, OUT_MAPPE, FOTOS_MAPPE,
     SFTP_HOST, SFTP_BRUGER, SFTP_MAPPE, SFTP_KODE,
     FTP_HOST, FTP_BRUGER, FTP_MAPPE, FTP_KODE,
 )
 
 __all__ = [
-    "upload", "upload_ftp", "gem_data",
+    "upload", "upload_ftp", "gem_data", "sync_fotos",
     "_opdater_haven_yaml", "_opdater_ftp_config",
 ]
 
@@ -163,6 +163,22 @@ def gem_data(besked: str | None = None) -> None:
         sys.exit(1)
     print(f"  ✓ {antal} {ord_} committet: \"{besked}\"")
 
+    # Hent fjern-ændringer ind først, så push ikke afvises når remote er foran
+    # (typisk når RPi5'en har auto-publiceret imellemtiden).
+    r = git("pull", "--rebase")
+    if r.returncode != 0:
+        # Står repoet midt i en konflikt-rebase? Afbryd, så det ikke efterlades brudt.
+        if (data_rod / ".git" / "rebase-merge").exists() or (data_rod / ".git" / "rebase-apply").exists():
+            git("rebase", "--abort")
+            print(f"⚠️  Committet lokalt, men kunne ikke flette fjern-ændringer (konflikt):\n{r.stderr.strip()}", file=sys.stderr)
+            print(f"   Løs det manuelt i {data_rod}: git pull --rebase, ret konflikter, så: git push", file=sys.stderr)
+        else:
+            print(f"⚠️  Committet lokalt, men git pull --rebase fejlede:\n{r.stderr.strip()}", file=sys.stderr)
+            print(f"   Dine data er gemt lokalt — prøv igen senere med: have gem-data", file=sys.stderr)
+        sys.exit(1)
+    if "up to date" not in (r.stdout + r.stderr).lower():
+        print("  ↻ fjern-ændringer hentet ind (rebase)")
+
     r = git("push")
     if r.returncode != 0:
         print(f"⚠️  Committet lokalt, men push fejlede:\n{r.stderr.strip()}", file=sys.stderr)
@@ -178,3 +194,63 @@ def gem_data(besked: str | None = None) -> None:
     elif "@" in url and ":" in url:               # scp-syntaks: bruger@host:sti
         dest = url.split("@", 1)[1].split(":", 1)[0]
     print(f"  ↑ pushet til {dest}" if url else "  ↑ pushet")
+
+
+def _rsync_fotos(kilde: str, mål: str, label: str) -> int:
+    """Kør én rsync af fotos. --update = kun nyere overskriver; ingen --delete, så
+    intet slettes ved et uheld. thumbs/ udelades (afledte — regenereres af build)."""
+    cmd = [
+        "rsync", "-a", "--update", "--info=stats1",
+        "--exclude=thumbs/", "--exclude=.DS_Store",
+        "-e", "ssh -o BatchMode=yes",
+        kilde, mål,
+    ]
+    print(f"  ↻ {label}")
+    try:
+        return subprocess.run(cmd).returncode
+    except FileNotFoundError:
+        print("❌ rsync er ikke installeret — kør: sudo pacman -S rsync", file=sys.stderr)
+        sys.exit(1)
+
+
+def sync_fotos(retning: str = "begge") -> None:
+    """Synkronisér fotos/ med det centrale billedarkiv på RPi5.
+
+    Arkivet (fotos_arkiv i haven.yaml) er den kanoniske union. To retninger:
+      op   — lokal fotos/ → arkiv (tilføjer maskinens nye fotos; sletter aldrig)
+      ned  — arkiv → lokal fotos/ (henter hele unionen ned; sletter aldrig)
+    'begge' (standard) kører op og derefter ned, så maskinen konvergerer mod
+    unionen. Sletninger propagerer ikke — det er en bevidst manuel handling på
+    arkivet. Auth med SSH-nøgle (samme som git-remoten/inbox).
+    """
+    arkiv = _config.get("fotos_arkiv", {}) or {}
+    host      = arkiv.get("host", "")
+    bruger    = arkiv.get("bruger", "")
+    arkiv_sti = (arkiv.get("sti", "") or "").rstrip("/")
+    if not (host and bruger and arkiv_sti):
+        print("❌ fotos_arkiv mangler i haven.yaml — tilføj fx:\n"
+              "   fotos_arkiv:\n"
+              "     host: <din-server>\n"
+              "     bruger: <bruger>\n"
+              "     sti: /sti/til/have-fotos", file=sys.stderr)
+        sys.exit(1)
+
+    lokal = str(FOTOS_MAPPE).rstrip("/") + "/"        # afsluttende / → synk indhold
+    fjern = f"{bruger}@{host}:{arkiv_sti}/"
+
+    if not os.path.isdir(FOTOS_MAPPE):
+        if retning == "op":
+            print(f"❌ Lokal fotos-mappe findes ikke: {FOTOS_MAPPE}", file=sys.stderr)
+            sys.exit(1)
+        os.makedirs(FOTOS_MAPPE, exist_ok=True)        # 'ned' på en frisk maskine
+
+    fejl = 0
+    if retning in ("op", "begge"):
+        fejl += _rsync_fotos(lokal, fjern, f"op:  {lokal} → {fjern}") and 1 or 0
+    if retning in ("ned", "begge"):
+        fejl += _rsync_fotos(fjern, lokal, f"ned: {fjern} → {lokal}") and 1 or 0
+
+    if fejl:
+        print("⚠️  Foto-synk meldte fejl — tjek output ovenfor.", file=sys.stderr)
+        sys.exit(1)
+    print("✅ Fotos synkroniseret med arkivet.")
