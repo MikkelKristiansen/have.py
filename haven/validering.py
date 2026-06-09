@@ -484,9 +484,32 @@ def check(yaml_filer, strict=False, farver=False):
         if not issues:
             OK(f"{len(aktive_frø)} aktive frøposter, {len(arkiverede_frø)} arkiverede — ok")
 
-    # ── 6. skadedyr.yaml ────────────────────────────────────────────────────────
+    # ── 6. dyr.yaml ───────────────────────────────────────────────────────────────
+    if os.path.isfile(DYR_FIL):
+        print(f"\n🔍 6. dyr.yaml\n")
+        dyr_rå  = load_yaml(DYR_FIL)
+        alle_dyr = dyr_rå if isinstance(dyr_rå, list) else dyr_rå.get("dyr", [])
+        fotos_dyr = os.path.join("fotos", "dyr")
+        dyr_foto_fejl = []
+        for d in alle_dyr or []:
+            hid  = d.get("id") or d.get("navn") or "?"
+            foto = d.get("foto")
+            if not isinstance(foto, dict):
+                continue
+            fil = foto.get("fil", "")
+            if not isinstance(fil, str) or not fil or fil.startswith("http"):
+                continue
+            if not os.path.isfile(os.path.join(fotos_dyr, fil)):
+                dyr_foto_fejl.append((hid, fil))
+        for hid, fil in dyr_foto_fejl:
+            W(f"fotos/dyr/{fil} refereret i '{hid}' men filen eksisterer ikke — "
+              f"tilføj filen eller ret foto.fil-feltet")
+        if not dyr_foto_fejl:
+            OK(f"{len(alle_dyr)} dyr — fotofiler ok")
+
+    # ── 7. skadedyr.yaml ────────────────────────────────────────────────────────
     if os.path.isfile(SKADEDYR_FIL):
-        print(f"\n🔍 6. skadedyr.yaml\n")
+        print(f"\n🔍 7. skadedyr.yaml\n")
         skadedyr_db = load_skadedyr()
         plante_db_full = {p["id"]: p for p in alle_planter if p.get("id")}
         issues = valider_skadedyr(skadedyr_db, plante_db_full)

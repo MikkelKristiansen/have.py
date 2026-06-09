@@ -169,6 +169,19 @@ def _læs_entry(mappe: Path):
                 "forfatter": (data.get("forfatter") or "").strip() or None,
                 "foto_kilde": foto_kilde}, None
 
+    if typ == "dyrfoto":
+        dyr_id = data.get("dyr_id")
+        if isinstance(dyr_id, list):
+            dyr_id = dyr_id[0] if dyr_id else None
+        dyr_id = (str(dyr_id).strip() if dyr_id else "")
+        if not dyr_id:
+            return None, "dyrfoto mangler dyr_id"
+        if not foto_kilde:
+            return None, "dyrfoto mangler foto"
+        return {"kind": "dyrfoto", "dato": str(dato), "dyr_id": dyr_id,
+                "forfatter": (data.get("forfatter") or "").strip() or None,
+                "foto_kilde": foto_kilde}, None
+
     if typ == "frøindkøb":
         navn = (data.get("navn") or "").strip()
         if not navn:
@@ -324,6 +337,68 @@ def opdater_plantefoto_fra_inbox(felter: dict) -> None:
     print(f"      → {_rel(PLANTER_FIL)} (foto: {nyt_filnavn})")
 
 
+def opdater_dyrfoto_fra_inbox(felter: dict) -> None:
+    """Erstat en eksisterende hønes foto med et eget billede fra inbox.
+
+    Kopierer billedet til fotos/dyr/{dyr_id}.{ext}, optimerer det (1200px JPEG
+    + thumbnail), sletter den gamle billedfil, og opdaterer foto-blokken i
+    dyr.yaml. Springer over (med advarsel) hvis hønen ikke findes.
+    """
+    import shutil
+    from io import StringIO
+    from ruamel.yaml import YAML
+    from ruamel.yaml.comments import CommentedMap
+    from .kontekst import DYR_FIL
+
+    did = felter["dyr_id"]
+    if not DYR_FIL.exists():
+        print(f"      ⚠️  {DYR_FIL} findes ikke — springer over")
+        return
+
+    ryaml = YAML()
+    ryaml.preserve_quotes = True
+    raw = ryaml.load(DYR_FIL.read_text(encoding="utf-8")) or {}
+    dyr = raw if isinstance(raw, list) else raw.get("dyr", [])
+    post = next((d for d in (dyr or []) if d.get("id") == did), None)
+    if post is None:
+        print(f"      ⚠️  dyr {did!r} findes ikke i dyr.yaml — springer over")
+        return
+
+    dyr_fotos = PROJECT_ROOT / "fotos" / "dyr"
+    dyr_fotos.mkdir(parents=True, exist_ok=True)
+    kilde = Path(felter["foto_kilde"])
+    ext = kilde.suffix.lower() or ".jpg"
+    dest = dyr_fotos / f"{did}{ext}"
+    shutil.copy2(kilde, dest)
+    try:
+        from .fotos import optimer_foto
+        gem_sti = optimer_foto(dest)
+    except Exception as e:
+        print(f"      ⚠️  Foto ikke optimeret: {e}")
+        gem_sti = dest
+    nyt_filnavn = gem_sti.name
+
+    gammel_foto = post.get("foto") if isinstance(post.get("foto"), dict) else {}
+    gammelt = gammel_foto.get("fil")
+    if gammelt and gammelt != nyt_filnavn and not str(gammelt).startswith("http"):
+        for forældet in (dyr_fotos / gammelt, dyr_fotos / "thumbs" / gammelt):
+            try:
+                forældet.unlink()
+            except OSError:
+                pass
+
+    nyt_foto = CommentedMap()
+    nyt_foto["fil"] = nyt_filnavn
+    if felter.get("forfatter"):
+        nyt_foto["forfatter"] = felter["forfatter"]
+    post["foto"] = nyt_foto
+
+    buf = StringIO()
+    ryaml.dump(raw, buf)
+    DYR_FIL.write_text(buf.getvalue(), encoding="utf-8")
+    print(f"      → {_rel(DYR_FIL)} (foto: {nyt_filnavn})")
+
+
 def _rel(sti) -> str:
     s = str(sti)
     return str(Path(s).relative_to(Path.cwd())) if s.startswith(str(Path.cwd())) else s
@@ -357,6 +432,14 @@ def behandl(lokal: Path, skriv: bool) -> list[str]:
             print(f"  • [plantefoto] {felter['dato']} / {felter['plante_id']}{forf}")
             if skriv:
                 opdater_plantefoto_fra_inbox(felter)
+            behandlede.append(mappe.name)
+            continue
+
+        if felter["kind"] == "dyrfoto":
+            forf = f" af {felter['forfatter']}" if felter.get("forfatter") else ""
+            print(f"  • [dyrfoto] {felter['dato']} / {felter['dyr_id']}{forf}")
+            if skriv:
+                opdater_dyrfoto_fra_inbox(felter)
             behandlede.append(mappe.name)
             continue
 
