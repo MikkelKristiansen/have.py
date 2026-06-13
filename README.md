@@ -3,6 +3,8 @@
 En tom have-skabelon klar til at komme i gang med
 [haven](https://github.com/mikkeljk/have.py).
 
+> 👉 **Ny her? Start med [Kom i gang på 5 minutter](docs/kom-i-gang.md).**
+
 ## Kom i gang
 
 Forudsætter Python 3.11 eller nyere.
