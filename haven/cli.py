@@ -28,7 +28,7 @@ from .kontekst import (
 from .indlaes import byg_plante_db, _find_yaml_filer
 from .validering import check, opdater_schema_plante_ids, opdater_schema_planter
 from .byg import generer_alle
-from .deploy import upload, upload_ftp, gem_data, sync_fotos
+from .deploy import upload, upload_ftp
 from .vejr import hent_vejr
 from .wizards import (
     init_projekt, nyt_område, nyt_år, ny_entry, ret_entry, ny_plante, ret_i_plante_yaml,
@@ -38,16 +38,15 @@ from .wizards import (
 
 
 def kør_alt(lokal: bool = False) -> None:
-    """Kør hele den daglige arbejdsgang i rækkefølge: hent nye indlæg fra inboxen,
-    gem havedata-repoet, og byg + deploy sitet. Et fejlende trin stopper ikke de
-    øvrige (afslutter dog med fejlkode hvis noget gik galt).
+    """Kør hele den daglige arbejdsgang i rækkefølge: hent nye indlæg fra inboxen
+    og byg + deploy sitet. Et fejlende trin stopper ikke de øvrige (afslutter dog
+    med fejlkode hvis noget gik galt). Data sikres via Synology Drive — ikke git.
 
     lokal=True læser inboxen direkte fra disk (--lokal) — bruges når have kører på
     samme maskine som have-inbox (fx headless auto-import på RPi5)."""
     hent_inbox = ["have", "hent-inbox", "--skriv"] + (["--lokal"] if lokal else [])
     trin = [
         ("📥  Henter dagbogsindlæg fra inboxen", hent_inbox),
-        ("💾  Gemmer havedata (commit + push)",   ["have", "gem-data"]),
         ("🚀  Bygger og deployer",                ["have", "deploy"]),
     ]
     fejlede = []
@@ -60,37 +59,7 @@ def kør_alt(lokal: bool = False) -> None:
     if fejlede:
         print(f"⚠️  'have alt' færdig, men disse trin havde problemer: {', '.join(fejlede)}")
         sys.exit(1)
-    print("✅  'have alt' færdig — hentet, gemt og deployet. 🌿")
-
-
-def kør_sync_alt(lokal: bool = False) -> None:
-    """Hent alt ind på denne maskine — pull-ind-modstykket til 'have alt':
-    pull af kode (ff-only) + havedata (rebase), importér nye inbox-indlæg, og
-    (på X1) hent fotos ned fra arkivet. Et fejlende trin stopper ikke de øvrige.
-
-    lokal=True = RPi5: inboxen læses fra disk (--lokal), og fotos springes over
-    (RPi5 bruger billedarkivet direkte via symlink, så der er intet at hente)."""
-    data_rod = str(PLANTER_FIL.parent)   # data/-repoets rod (planter.yaml ligger der)
-    hent_inbox = ["have", "hent-inbox", "--skriv"] + (["--lokal"] if lokal else [])
-    trin = [
-        ("⬇️  Henter kode (git pull --ff-only)",   ["git", "pull", "--ff-only"]),
-        ("⬇️  Henter havedata (git pull --rebase)", ["git", "-C", data_rod, "pull"]),
-        ("📥  Importerer nye inbox-indlæg",         hent_inbox),
-    ]
-    if not lokal:
-        trin.append(("🖼️  Henter fotos ned fra arkivet", ["have", "sync-fotos", "--retning", "ned"]))
-
-    fejlede = []
-    for navn, kmd in trin:
-        print(f"\n{'═' * 52}\n  {navn}\n{'═' * 52}")
-        if subprocess.run(kmd).returncode != 0:
-            fejlede.append(navn.strip())
-            print("⚠️  Trinnet meldte en fejl — fortsætter med resten.")
-    print()
-    if fejlede:
-        print(f"⚠️  'have sync-alt' færdig, men disse trin havde problemer: {', '.join(fejlede)}")
-        sys.exit(1)
-    print("✅  'have sync-alt' færdig — denne maskine er nu i sync. 🌿")
+    print("✅  'have alt' færdig — hentet og deployet. 🌿")
 
 
 class GrupperetHelp(argparse.RawDescriptionHelpFormatter):
@@ -146,10 +115,7 @@ Kommandoer:
     watch               Filwatcher der genbygger ved ændringer (livereload)
     check               Validér planter.yaml og krydsreferencér mod bede
     deploy              Generer alle sider og upload til server
-    gem-data            Commit + push af havedata-repoet (data/)
-    sync-fotos          Synkronisér fotos/ med det centrale billedarkiv (RPi5)
-    alt                 Kør hele arbejdsgangen (publicér-ud): hent-inbox → gem-data → deploy
-    sync-alt            Hent alt ind (pull-ind): pull kode + data, importér inbox, hent fotos
+    alt                 Kør hele arbejdsgangen: hent-inbox → deploy
 
 Kør 'have <kommando> --help' for detaljer om en enkelt kommando.
 
@@ -267,27 +233,10 @@ def main():
     )
 
     # Subkommando: alt — kør hele arbejdsgangen
-    _p_alt = subparsers.add_parser("alt", help="Kør hele arbejdsgangen: hent-inbox → gem-data → deploy")
+    _p_alt = subparsers.add_parser("alt", help="Kør hele arbejdsgangen: hent-inbox → deploy")
     _p_alt.add_argument("--lokal", action="store_true",
                         help="Læs inboxen lokalt fra disk i stedet for via SFTP "
                              "(når have kører på samme maskine som have-inbox, fx RPi5)")
-
-    # Subkommando: sync-alt — hent alt ind (pull-ind-modstykket til 'alt')
-    _p_sync_alt = subparsers.add_parser("sync-alt", help="Hent alt ind: pull kode + data, importér inbox, hent fotos")
-    _p_sync_alt.add_argument("--lokal", action="store_true",
-                             help="RPi5-tilstand: læs inboxen fra disk (--lokal) og spring fotos over "
-                                  "(arkivet bruges direkte via symlink)")
-
-    # Subkommando: gem-data
-    _p_gem = subparsers.add_parser("gem-data", help="Commit + push af havedata-repoet (data/)")
-    _p_gem.add_argument("besked", nargs="?", metavar="BESKED",
-                        help="Valgfri commit-besked (standard: 'opdater havedata <dato>')")
-
-    # Subkommando: sync-fotos
-    _p_synk = subparsers.add_parser("sync-fotos", help="Synkronisér fotos/ med det centrale billedarkiv (RPi5)")
-    _p_synk.add_argument("--retning", choices=["begge", "op", "ned"], default="begge",
-                         help="op = send lokale fotos til arkivet, ned = hent unionen, "
-                              "begge = op derefter ned (standard)")
 
     # Subkommando: hent-vejr
     hent_vejr_parser = subparsers.add_parser("hent-vejr", help="Hent historisk vejrdata fra Open-Meteo og skriv til almanak.yaml")
@@ -386,18 +335,6 @@ def main():
 
     if args.kommando == "alt":
         kør_alt(lokal=args.lokal)
-        sys.exit(0)
-
-    if args.kommando == "sync-alt":
-        kør_sync_alt(lokal=args.lokal)
-        sys.exit(0)
-
-    if args.kommando == "gem-data":
-        gem_data(args.besked)
-        sys.exit(0)
-
-    if args.kommando == "sync-fotos":
-        sync_fotos(retning=args.retning)
         sys.exit(0)
 
     if args.kommando == "hent-vejr":

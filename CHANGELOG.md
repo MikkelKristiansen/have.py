@@ -5,6 +5,19 @@ Format følger [Keep a Changelog](https://keepachangelog.com/da/1.0.0/).
 
 ## [Unreleased]
 
+### Ændret
+- **Sync-model forenklet til Synology Drive** — hele have-træet (kode, `data/`,
+  `fotos/`) holdes nu i sync mellem X1 og RPi5 af Synology Drive (X1 → DS218,
+  mountet på RPi5) i stedet for git-data-hub + rsync. Data versioneres af Synology
+  Drives egen historik. `have alt` er nu `hent-inbox → deploy`. Auto-publiceringen
+  på RPi5 kører fra det mountede træ med et lokalt venv uden for træet
+  (`~/have-venv`). Se `docs/sync.md` og `conf/systemd/README.md`.
+
+### Fjernet
+- **`have gem-data`, `have sync-fotos`, `have sync-alt`** — git-data-backup og
+  foto-rsync er afløst af Synology Drive. `data/`-git'en og foto-arkivet er nu
+  inert og kan arkiveres.
+
 ### Tilføjet
 - **`have hent-inbox --lokal`** (også `have alt --lokal`) — læser have-inbox'
   inbox-mappe direkte fra disk og rydder lokalt, i stedet for via SFTP-loopback.
@@ -12,8 +25,8 @@ Format følger [Keep a Changelog](https://keepachangelog.com/da/1.0.0/).
   have.py kører på samme maskine som have-inbox (fx en RPi5).
 - **Auto-publicering på serveren** — `scripts/have-publicer.sh` (flock-beskyttet
   wrapper om `have alt --lokal`) + systemd `.path`/`.service`-units i
-  `conf/systemd/`. En inotify-overvåget inbox-mappe udløser import → gem-data →
-  deploy, så telefon-indlæg publiceres automatisk uden laptoppen. Se
+  `conf/systemd/`. En inotify-overvåget inbox-mappe udløser import → deploy, så
+  telefon-indlæg publiceres automatisk uden laptoppen. Se
   `conf/systemd/README.md`.
 
 ## [1.2.0] — 2026-06-03

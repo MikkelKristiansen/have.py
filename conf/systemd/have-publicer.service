@@ -1,5 +1,5 @@
 [Unit]
-Description=Importér have-inbox-indlæg, gem havedata og deploy haven
+Description=Importér have-inbox-indlæg og deploy haven
 After=network-online.target
 Wants=network-online.target
 # Sikkerhedsnet: hvis path-unit'en skulle gentrigge i en løkke (fx oprydning
@@ -9,5 +9,8 @@ StartLimitBurst=5
 
 [Service]
 Type=oneshot
-ExecStart=%h/lokalmidler/have.py/scripts/have-publicer.sh
+# Scriptet bor i det Synology-mountede have-træ. Justér stien hvis dit mount
+# ligger et andet sted. (Er mountet nede, fejler starten blot — den udløses kun
+# når et nyt inbox-indlæg lander, hvor mountet normalt er oppe.)
+ExecStart=%h/synosync/3.Resources/have.py/scripts/have-publicer.sh
 # .env (HAVE_SFTP_KODE/HAVE_FTP_KODE) læses af have selv fra projektroden.

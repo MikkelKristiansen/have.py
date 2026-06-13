@@ -658,16 +658,6 @@ def _hons_entry_label(data: dict) -> str:
     return f"{dato}  {ikon} {label}{ekstra}"
 
 
-def _tilbyd_gem_data():
-    """Spørg om brugeren vil commit + pushe havedata efter en rettelse."""
-    import questionary
-    from .deploy import gem_data as _gem_data
-    if questionary.confirm(
-        "Kør gem-data (commit + push af havedata)?", default=False
-    ).ask():
-        _gem_data()
-
-
 def _ret_hons_entry():
     """Wizard til at rette i en eksisterende hønse-entry."""
     import io
@@ -885,7 +875,6 @@ def _ret_hons_entry():
 
     from .byg import generer_alle
     generer_alle()
-    _tilbyd_gem_data()
 
 
 def _ret_dagbog_entry():
@@ -997,7 +986,6 @@ def _ret_dagbog_entry():
 
     from .byg import generer_alle
     generer_alle()
-    _tilbyd_gem_data()
 
 
 def ret_entry():
