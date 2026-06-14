@@ -10,7 +10,7 @@ import datetime
 import os
 from pathlib import Path
 
-from .kontekst import HONS_TYPER, DYR_DB, DATA_MAPPE, AKTIVT_ÅR, DYR_FIL
+from .kontekst import HONS_TYPER, DYR_DB, DATA_MAPPE, AKTIVT_ÅR, DYR_FIL, MÅNEDER, MÅNEDER_LANG
 from .indlaes import load_yaml, _dyr_label, skriv_hvis_ændret
 
 __all__ = ["generer_hons_html", "generer_hons_ics", "_markér_dyr_inaktiv"]
@@ -96,62 +96,23 @@ def _berig_hons_entry(e: dict) -> dict:
     return e
 
 
-def _æg_oversigt(entries: list, aktive_høner: int = 0) -> "dict | None":
-    """Saml æglægnings-entries til nøgletal + inline SVG-søjlegraf (pr. ISO-uge).
+def _søjle_svg(data: "list[tuple[str, int]]", vis_antal: bool = True) -> str:
+    """Tegn en inline SVG-søjlegraf af (label, antal)-par.
 
-    Returnerer None hvis ingen æglægning er registreret.
-    Output er deterministisk — ingen wall-clock, ingen 'i dag'-markør.
+    Hver søjle får sit label nederst, og — når vis_antal er sat — antallet skrevet
+    som tal lige under søjlen (over labelet). Output er deterministisk.
     """
-    aegl = [e for e in entries if e.get("type") == "æglægning"]
-    if not aegl:
-        return None
+    if not data:
+        return ""
 
-    uger: dict = {}          # (iso_år, iso_uge) -> total æg
-    bedste_dato = ""
-    bedste_antal = 0
-    total = 0
-
-    for e in aegl:
-        try:
-            dato = datetime.date.fromisoformat(str(e.get("dato", "")))
-        except ValueError:
-            continue
-        antal = int(e.get("æg", 0) or 0)
-        total += antal
-        if antal > bedste_antal:
-            bedste_antal = antal
-            bedste_dato  = str(e.get("dato", ""))
-        iso = dato.isocalendar()
-        nøgle = (iso[0], iso[1])
-        uger[nøgle] = uger.get(nøgle, 0) + antal
-
-    if not uger:
-        return None
-
-    # Kontinuerligt uge-spænd (huller udfyldes med 0)
-    alle = sorted(uger)
-    cur_år, cur_uge = alle[0]
-    slut_år, slut_uge = alle[-1]
-    uger_data: list[tuple[int, int]] = []     # (uge_nr, antal)
-    while (cur_år, cur_uge) <= (slut_år, slut_uge):
-        uger_data.append((cur_uge, uger.get((cur_år, cur_uge), 0)))
-        næste = (datetime.date.fromisocalendar(cur_år, cur_uge, 1)
-                 + datetime.timedelta(weeks=1))
-        iso = næste.isocalendar()
-        cur_år, cur_uge = iso[0], iso[1]
-
-    antal_uger = len(uger_data)
-    snit = round(total / antal_uger, 1) if antal_uger else 0
-
-    # ── SVG-søjlegraf ─────────────────────────────────────────────────────────
-    W, H    = 400, 90
+    W, H    = 400, 100
     ML, MR  = 32, 6
-    PT, PB  = 8, 16
+    PT, PB  = 8, 26                 # ekstra bundplads til to tekstlinjer (antal + label)
     DW = W - ML - MR
     DH = H - PT - PB
     y_bot = PT + DH
 
-    max_val = max((a for _, a in uger_data), default=1) or 1
+    max_val = max((a for _, a in data), default=1) or 1
 
     def nice_step(v):
         for s in (1, 2, 5, 10, 20, 50, 100):
@@ -165,7 +126,8 @@ def _æg_oversigt(entries: list, aktive_høner: int = 0) -> "dict | None":
     def yv(v):
         return round(PT + (y_max - v) / y_max * DH, 2)
 
-    col = DW / max(antal_uger, 1)
+    n   = len(data)
+    col = DW / max(n, 1)
     bw  = max(round(col * 0.65, 2), 1.0)
 
     def xc(i):
@@ -187,16 +149,18 @@ def _æg_oversigt(entries: list, aktive_høner: int = 0) -> "dict | None":
     els.append(f'<text x="{ML - 3}" y="{y_bot}" font-size="6.5" '
                f'fill="#aaa" text-anchor="end" font-family="sans-serif">0</text>')
 
-    # X-akse: uge-labels (spring over hvis mange uger)
-    lbl_hvert = 1 if antal_uger <= 12 else 2 if antal_uger <= 24 else 4
-    for i, (uge_nr, _) in enumerate(uger_data):
-        if i % lbl_hvert == 0:
-            els.append(f'<text x="{xc(i)}" y="{H - 2}" font-size="6.5" '
-                       f'fill="#aaa" text-anchor="middle" '
-                       f'font-family="sans-serif">U{uge_nr}</text>')
+    # X-akse-labels (alle — antallet af søjler holdes lavt) + antal under søjlen
+    for i, (label, antal) in enumerate(data):
+        els.append(f'<text x="{xc(i)}" y="{H - 2}" font-size="6.5" '
+                   f'fill="#aaa" text-anchor="middle" '
+                   f'font-family="sans-serif">{label}</text>')
+        if vis_antal and antal > 0:
+            els.append(f'<text x="{xc(i)}" y="{round(y_bot + 9, 2)}" font-size="6.5" '
+                       f'fill="#7b5c0d" text-anchor="middle" font-weight="600" '
+                       f'font-family="sans-serif">{antal}</text>')
 
     # Søjler
-    for i, (_, antal) in enumerate(uger_data):
+    for i, (_, antal) in enumerate(data):
         if antal <= 0:
             continue
         bh = round(antal / y_max * DH, 2)
@@ -204,16 +168,88 @@ def _æg_oversigt(entries: list, aktive_høner: int = 0) -> "dict | None":
         els.append(f'<rect x="{bx}" y="{round(y_bot - bh, 2)}" '
                    f'width="{bw}" height="{bh}" fill="#e8b84b" rx="0.8"/>')
 
-    svg = (f'<svg viewBox="0 0 {W} {H}" xmlns="http://www.w3.org/2000/svg" '
-           f'aria-hidden="true">' + "".join(els) + "</svg>")
+    return (f'<svg viewBox="0 0 {W} {H}" xmlns="http://www.w3.org/2000/svg" '
+            f'aria-hidden="true">' + "".join(els) + "</svg>")
+
+
+def _æg_oversigt(entries: list, aktive_høner: int = 0) -> "dict | None":
+    """Saml æglægnings-entries til nøgletal + søjlegrafer.
+
+    Returnerer et samlet årsdiagram (én søjle pr. måned) plus en liste af måneder,
+    hver med sit eget uge-diagram, så skabelonen kan folde dem ud enkeltvis.
+    Returnerer None hvis ingen æglægning er registreret.
+    Output er deterministisk — ingen wall-clock, ingen 'i dag'-markør.
+    """
+    aegl = [e for e in entries if e.get("type") == "æglægning"]
+    if not aegl:
+        return None
+
+    uger: dict = {}                 # (iso_år, iso_uge) -> total æg (hele året, til snit)
+    måned_total: dict = {}          # (år, måned) -> total æg
+    måned_uger: dict = {}           # (år, måned) -> {iso_uge -> antal}
+    bedste_dato = ""
+    bedste_antal = 0
+    total = 0
+
+    for e in aegl:
+        try:
+            dato = datetime.date.fromisoformat(str(e.get("dato", "")))
+        except ValueError:
+            continue
+        antal = int(e.get("æg", 0) or 0)
+        total += antal
+        if antal > bedste_antal:
+            bedste_antal = antal
+            bedste_dato  = str(e.get("dato", ""))
+        iso = dato.isocalendar()
+        uger[(iso[0], iso[1])] = uger.get((iso[0], iso[1]), 0) + antal
+        mk = (dato.year, dato.month)
+        måned_total[mk] = måned_total.get(mk, 0) + antal
+        måned_uger.setdefault(mk, {})
+        måned_uger[mk][iso[1]] = måned_uger[mk].get(iso[1], 0) + antal
+
+    if not uger:
+        return None
+
+    antal_uger = len(uger)
+    snit = round(total / antal_uger, 1) if antal_uger else 0
+
+    # ── Årsdiagram: kontinuerligt måneds-spænd (huller udfyldes med 0) ──────────
+    mk_alle = sorted(måned_total)
+    (start_år, start_md), (slut_år, slut_md) = mk_alle[0], mk_alle[-1]
+    år_data: list[tuple[str, int]] = []
+    cur = (start_år, start_md)
+    while cur <= (slut_år, slut_md):
+        år_data.append((MÅNEDER[cur[1] - 1], måned_total.get(cur, 0)))
+        cur = (cur[0] + 1, 1) if cur[1] == 12 else (cur[0], cur[1] + 1)
+
+    # ── Pr. måned: uge-diagram (kun måneder med æg) ─────────────────────────────
+    måneder: list[dict] = []
+    for mk in mk_alle:
+        if måned_total[mk] <= 0:
+            continue
+        u = måned_uger[mk]
+        u_min, u_max = min(u), max(u)
+        # Fyld kun huller ud ved et sammenhængende uge-spænd (undgå år-skifte-wrap)
+        if u_max - u_min <= 6:
+            uge_data = [(f"U{w}", u.get(w, 0)) for w in range(u_min, u_max + 1)]
+        else:
+            uge_data = [(f"U{w}", u[w]) for w in sorted(u)]
+        måneder.append({
+            "måned": mk[1],
+            "navn":  MÅNEDER_LANG[mk[1] - 1].capitalize(),
+            "total": måned_total[mk],
+            "svg":   _søjle_svg(uge_data),
+        })
 
     resultat: dict = {
-        "total":       total,
-        "antal_uger":  antal_uger,
-        "snit_pr_uge": snit,
-        "bedste_dato": bedste_dato,
+        "total":        total,
+        "antal_uger":   antal_uger,
+        "snit_pr_uge":  snit,
+        "bedste_dato":  bedste_dato,
         "bedste_antal": bedste_antal,
-        "svg":         svg,
+        "år_svg":       _søjle_svg(år_data),
+        "måneder":      måneder,
     }
     if aktive_høner > 0 and antal_uger:
         resultat["æg_pr_høne_pr_uge"] = round(total / (aktive_høner * antal_uger), 2)
@@ -262,6 +298,7 @@ def generer_hons_html(yaml_sti, html_sti, env, nav_context=None, data_mappe_sti=
         har_ics      = har_ics,
         ics_fil      = f"{html_navn}-{AKTIVT_ÅR}.ics",
         æg_data      = æg_data,
+        aktuel_måned = datetime.date.today().month,
         **(nav_context or {}),
     )
     if skriv_hvis_ændret(html_sti, output):

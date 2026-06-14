@@ -30,6 +30,11 @@
   .æg-stat span { font-size: .78rem; color: #999; }
   .æg-graf { margin: .5rem 0 1.25rem; }
   .æg-graf svg { width: 100%; max-width: 520px; display: block; }
+  .æg-måneder { margin: .25rem 0 1.5rem; max-width: 520px; }
+  .æg-måned { margin-bottom: 0; padding-bottom: .4rem; }
+  .æg-måned > .alm-måned-navn { font-size: 1.05rem; margin-bottom: .2rem; }
+  .æg-måned-total { margin-left: auto; margin-right: .6rem; font-size: .82rem; font-weight: 600; color: #7b5c0d; }
+  .æg-måned .æg-graf { margin: .25rem 0 .5rem; }
   .æg-tabel-wrapper { margin: 0 0 2rem; }
   .æg-tabel-wrapper summary { cursor: pointer; font-size: .85rem; color: var(--grøn-mørk); padding: .25rem 0; user-select: none; }
   .æg-tabel { width: 100%; max-width: 420px; border-collapse: collapse; font-size: .88rem; margin-top: .5rem; }
@@ -116,7 +121,17 @@
   </div>
   {% endif %}
 </div>
-<div class="æg-graf">{{ æg_data.svg | safe }}</div>
+<div class="æg-graf">{{ æg_data.år_svg | safe }}</div>
+{% if æg_data.måneder %}
+<div class="æg-måneder">
+  {% for mån in æg_data.måneder %}
+  <details class="alm-måned æg-måned" id="æg-måned-{{ mån.måned }}"{% if mån.måned == aktuel_måned %} open{% endif %}>
+    <summary class="alm-måned-navn">{{ mån.navn }}<span class="æg-måned-total">{{ mån.total }} æg</span></summary>
+    <div class="æg-graf">{{ mån.svg | safe }}</div>
+  </details>
+  {% endfor %}
+</div>
+{% endif %}
 {% set æg_entries = entries | selectattr('type', 'equalto', 'æglægning') | list %}
 {% if æg_entries %}
 <details class="æg-tabel-wrapper">
