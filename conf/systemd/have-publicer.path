@@ -3,8 +3,14 @@ Description=Overvåg have-inbox' inbox-mappe og udløs auto-publicering
 
 [Path]
 # inotify på den lokale inbox-mappe — udløses når et nyt indlæg lander.
-# Edge-trigget (PathModified), så en mislykket oprydning ikke hot-looper.
+# PathModified (edge) fanger nye indlæg; DirectoryNotEmpty (niveau) re-fyrer når
+# servicen er færdig OG inboxen stadig har noget i sig. Det dækker racen hvor et
+# indlæg lander mens en kørsel allerede er i gang: flock skipper den trigger, og
+# edge-event'en er brugt op — uden niveau-tjekket ville indlægget strande til
+# næste post. StartLimitIntervalSec/Burst i servicen forhindrer hot-loop hvis en
+# oprydning vedvarende fejler.
 PathModified=/home/yunohost.app/have_inbox/inbox
+DirectoryNotEmpty=/home/yunohost.app/have_inbox/inbox
 Unit=have-publicer.service
 
 [Install]
