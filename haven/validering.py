@@ -248,9 +248,10 @@ def check(yaml_filer, strict=False, farver=False):
 
     PÅKRÆVEDE_SKABELONER = ["base.html", "have.html", "index.html",
                              "almanak.html", "planter.html"]
-    if os.path.isdir("templates"):
+    templates_mappe = os.path.join(PROJECT_ROOT, "templates")
+    if os.path.isdir(templates_mappe):
         mangler_tmpl = [t for t in PÅKRÆVEDE_SKABELONER
-                        if not os.path.isfile(os.path.join("templates", t))]
+                        if not os.path.isfile(os.path.join(templates_mappe, t))]
         if mangler_tmpl:
             for t in mangler_tmpl:
                 E(f"templates/{t} mangler — er templates/-mappen ufuldstændig?")
@@ -259,7 +260,7 @@ def check(yaml_filer, strict=False, farver=False):
     else:
         OK("templates/ bruger pakkedata (ingen lokal tilpasning)")
 
-    fotos_entries = os.path.join("fotos", "entries", str(AKTIVT_ÅR))
+    fotos_entries = os.path.join(FOTOS_MAPPE, "entries", str(AKTIVT_ÅR))
     if not os.path.isdir(fotos_entries):
         W(f"{fotos_entries}/ mangler — "
           f"opret mappen eller kør: have nyt-år {AKTIVT_ÅR}")
@@ -316,7 +317,7 @@ def check(yaml_filer, strict=False, farver=False):
         OK(f"Alle {len(alle_planter)} planter har farve-felt")
 
     # Billeder
-    fotos_planter = os.path.join("fotos", "planter")
+    fotos_planter = os.path.join(FOTOS_MAPPE, "planter")
     for p in alle_planter:
         foto_data = p.get("foto")
         if isinstance(foto_data, dict):
@@ -489,7 +490,7 @@ def check(yaml_filer, strict=False, farver=False):
         print(f"\n🔍 6. dyr.yaml\n")
         dyr_rå  = load_yaml(DYR_FIL)
         alle_dyr = dyr_rå if isinstance(dyr_rå, list) else dyr_rå.get("dyr", [])
-        fotos_dyr = os.path.join("fotos", "dyr")
+        fotos_dyr = os.path.join(FOTOS_MAPPE, "dyr")
         dyr_foto_fejl = []
         for d in alle_dyr or []:
             hid  = d.get("id") or d.get("navn") or "?"
