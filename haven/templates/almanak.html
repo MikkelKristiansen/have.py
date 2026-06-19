@@ -140,11 +140,7 @@
             {% endif %}
           </figure>
           {% endif %}
-          <div class="alm-tekst">
-            {% for linje in entry.tekst | default('') | splitlines %}
-            {% if linje.strip() %}<p>{{ linje }}</p>{% endif %}
-            {% endfor %}
-          </div>
+          <div class="alm-tekst">{{ entry.tekst | default('') | md | safe }}</div>
         </div>
       </article>
       {% endfor %}

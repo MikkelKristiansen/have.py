@@ -20,6 +20,8 @@
   .hons-log .type-label { font-weight: 600; color: var(--grøn-mørk); }
   .hons-log .dato { color: #999; font-size: .8rem; }
   .hons-log .resume { color: #333; margin-top: .15rem; }
+  .hons-log .resume.md > :first-child { margin-top: 0; }
+  .hons-log .resume.md > :last-child { margin-bottom: 0; }
   .hons-log .noter { color: #777; font-style: italic; font-size: .88rem; margin-top: .15rem; }
   .hons-log .foto { margin: .5rem 0 0; }
   .hons-log .foto img { max-width: 240px; width: 100%; border-radius: 8px; display: block; }
@@ -164,7 +166,7 @@
         <span class="type-label">{{ e.type_label }}</span>
         <span class="dato">{{ e.dato | dato_fmt }}</span>
       </span>
-      {% if e.resume %}<div class="resume">{{ e.resume }}</div>{% endif %}
+      {% if e.resume %}<div class="resume{% if e.type == 'note' %} md{% endif %}">{% if e.type == 'note' %}{{ e.resume | md | safe }}{% else %}{{ e.resume }}{% endif %}</div>{% endif %}
       {% if e.noter %}<div class="noter">{{ e.noter }}</div>{% endif %}
       {% if e.foto %}
       <figure class="foto">

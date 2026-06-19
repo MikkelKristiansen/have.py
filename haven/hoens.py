@@ -44,7 +44,7 @@ def _hons_resume(e: dict) -> str:
     t = e.get("type", "")
     dele: list = []
     if t == "note":
-        return e.get("høne_label") or ""
+        return e.get("tekst") or e.get("høne_label") or ""
     if t == "æglægning":
         return f"{e.get('æg', 0)} æg"
     if t == "ruge-start":
