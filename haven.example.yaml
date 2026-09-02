@@ -60,7 +60,7 @@ deploy:
     bruger: ""
     # Sti på serveren hvortil sitet uploades
     mappe: "/var/www/min-have"
-    # Adgangskode: sæt HAVE_SFTP_KODE i .env (kopiér fra .env.eksempel)
+    # Ingen adgangskode: der logges på med SSH-nøgle (ssh-copy-id bruger@host)
 
   ftp:
     # Hostname på din FTP-server

@@ -13,7 +13,7 @@ import sys
 
 from .config import (
     load_config, data_mappe, out_mappe, sti,
-    sftp_adgangskode, ftp_adgangskode, rotation_cyklus,
+    ftp_adgangskode, rotation_cyklus,
 )
 
 _config = load_config()
@@ -65,7 +65,8 @@ _sftp = _deploy.get("sftp", {})
 SFTP_HOST   = _sftp.get("host", "")
 SFTP_BRUGER = _sftp.get("bruger", "")
 SFTP_MAPPE  = _sftp.get("mappe", "")
-SFTP_KODE   = sftp_adgangskode()
+# Ingen SFTP-adgangskode: sftp går over ssh med nøgle. lftp kan ikke aflevere
+# et kodeord til ssh, så en HAVE_SFTP_KODE ville alligevel aldrig blive brugt.
 
 _ftp = _deploy.get("ftp", {})
 FTP_HOST   = _ftp.get("host", "")

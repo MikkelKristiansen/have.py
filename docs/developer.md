@@ -68,10 +68,15 @@ deploy:
     host: example.com
     bruger: mit_brugernavn
     mappe: www
-    # Adgangskode: export HAVE_SFTP_KODE=ditpassword
+    # Ingen adgangskode — sftp logger på med SSH-nøgle
 ```
 
-Adgangskoder gemmes aldrig i `haven.yaml`. Sæt dem via `.env`:
+**SFTP bruger SSH-nøgle, ikke adgangskode.** lftp kan ikke aflevere et kodeord
+til ssh — ssh spørger selv, og der er ingen terminal under en deploy. Giv i
+stedet adgang med `ssh-copy-id bruger@host`, og sørg for at nøglen ligger i
+ssh-agenten, hvis den har passphrase.
+
+FTP'ens adgangskode gemmes aldrig i `haven.yaml`. Sæt den via `.env`:
 
 ```bash
 cp .env.eksempel .env

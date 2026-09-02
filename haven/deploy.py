@@ -11,7 +11,7 @@ import sys
 
 from .kontekst import (
     OUT_MAPPE,
-    SFTP_HOST, SFTP_BRUGER, SFTP_MAPPE, SFTP_KODE,
+    SFTP_HOST, SFTP_BRUGER, SFTP_MAPPE,
     FTP_HOST, FTP_BRUGER, FTP_MAPPE, FTP_KODE,
 )
 
@@ -99,9 +99,6 @@ def upload_ftp(_filer):
 
 def upload(filer):
     """Upload HTML-filer og fotos til server via lftp + SFTP."""
-    if not SFTP_KODE:
-        print("❌ HAVE_SFTP_KODE er ikke sat — kør: export HAVE_SFTP_KODE=ditpassword")
-        sys.exit(1)
     if not SFTP_MAPPE or SFTP_MAPPE.strip("/ ") == "":
         print("❌ deploy.sftp.mappe er ikke sat (eller er '/') — afbryder.\n"
               "   'mirror --delete' ville ellers spejle mod serverens rod og kunne\n"
@@ -117,8 +114,9 @@ def upload(filer):
         # ingen brugbar nøgle — og lftp kan ikke aflevere et kodeord til ssh.
         # Fejlen så ud som et forkert kodeord ("Login failed: Login incorrect").
         'set sftp:connect-program "ssh -a -x -o BatchMode=yes"',
-        f"open {_lftp_q(f'sftp://{SFTP_HOST}')}",
-        f"user {_lftp_q(SFTP_BRUGER)} {_lftp_q(SFTP_KODE)}",
+        # Brugeren i URL'en med TOM kode (':@') — samme greb som inbox.py: så
+        # spørger lftp ikke efter et password, den alligevel ikke kan bruge.
+        f"open {_lftp_q(f'sftp://{SFTP_BRUGER}:@{SFTP_HOST}')}",
         f"mirror -R --delete --verbose {_lftp_q(f'{out_rod}/')} {_lftp_q(f'{SFTP_MAPPE}/')}",
         "bye",
         "",

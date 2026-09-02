@@ -42,9 +42,5 @@ def rotation_cyklus(config: dict) -> list:
     return (config.get("rotation") or {}).get("cyklus") or []
 
 
-def sftp_adgangskode() -> str:
-    return os.environ.get("HAVE_SFTP_KODE", "")
-
-
 def ftp_adgangskode() -> str:
     return os.environ.get("HAVE_FTP_KODE", "")

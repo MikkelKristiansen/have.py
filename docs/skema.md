@@ -42,7 +42,7 @@ deploy:
     host: eksempel.dk
     bruger: mit_brugernavn
     mappe: www
-    # Adgangskode: HAVE_SFTP_KODE miljøvariabel eller .env
+    # Ingen adgangskode — sftp logger på med SSH-nøgle
   ftp:
     host: eksempel.dk
     bruger: mit_brugernavn
