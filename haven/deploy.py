@@ -111,7 +111,12 @@ def upload(filer):
     out_rod = OUT_MAPPE.parent
     print(f"  ↑ {out_rod}/ → {SFTP_BRUGER}@{SFTP_HOST}:{SFTP_MAPPE}/")
     script = "\n".join([
-        "set sftp:connect-program \"ssh -o IdentityAgent=none\"",
+        # Nøgle-auth via ssh-agenten — samme opsætning som inbox.py, der virker.
+        # Her stod "ssh -o IdentityAgent=none" indtil 2. sep 2026, og den lukkede
+        # agenten ude: ~/.ssh/id_rsa har passphrase, så uden agenten findes der
+        # ingen brugbar nøgle — og lftp kan ikke aflevere et kodeord til ssh.
+        # Fejlen så ud som et forkert kodeord ("Login failed: Login incorrect").
+        'set sftp:connect-program "ssh -a -x -o BatchMode=yes"',
         f"open {_lftp_q(f'sftp://{SFTP_HOST}')}",
         f"user {_lftp_q(SFTP_BRUGER)} {_lftp_q(SFTP_KODE)}",
         f"mirror -R --delete --verbose {_lftp_q(f'{out_rod}/')} {_lftp_q(f'{SFTP_MAPPE}/')}",
