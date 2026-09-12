@@ -50,6 +50,18 @@ def _lftp_q(værdi) -> str:
     return f'"{s}"'
 
 
+# lftp giver ellers aldrig op. Med standardindstillingerne (net:max-retries 1000,
+# op til 5 min mellem forsøgene, net:timeout 5m) hang sftp-deployet på apps-mk i
+# seks dage (5.–12. sep 2026): login blev afvist, og lftp prøvede bare igen og
+# igen, mens auto-publiceringen stod stille. Med disse fejler en død eller afvist
+# forbindelse inden for få minutter, og fejlen bliver synlig.
+_LFTP_TIMEOUTS = [
+    "set net:timeout 30",
+    "set net:max-retries 3",
+    "set net:reconnect-interval-base 10",
+]
+
+
 def _kør_lftp(script: str) -> None:
     """Kør et lftp-kommandoscript via stdin.
 
@@ -87,7 +99,7 @@ def upload_ftp(_filer):
 
     out_rod = OUT_MAPPE.parent
     print(f"  ↑ {out_rod}/ → {FTP_BRUGER}@{FTP_HOST}:{FTP_MAPPE}/")
-    script = "\n".join([
+    script = "\n".join(_LFTP_TIMEOUTS + [
         f"open {_lftp_q(f'ftp://{FTP_HOST}')}",
         f"user {_lftp_q(FTP_BRUGER)} {_lftp_q(FTP_KODE)}",
         f"mirror -R --delete --verbose {_lftp_q(f'{out_rod}/')} {_lftp_q(f'{FTP_MAPPE}/')}",
@@ -107,7 +119,7 @@ def upload(filer):
 
     out_rod = OUT_MAPPE.parent
     print(f"  ↑ {out_rod}/ → {SFTP_BRUGER}@{SFTP_HOST}:{SFTP_MAPPE}/")
-    script = "\n".join([
+    script = "\n".join(_LFTP_TIMEOUTS + [
         # Nøgle-auth via ssh-agenten — samme opsætning som inbox.py, der virker.
         # Her stod "ssh -o IdentityAgent=none" indtil 2. sep 2026, og den lukkede
         # agenten ude: ~/.ssh/id_rsa har passphrase, så uden agenten findes der
