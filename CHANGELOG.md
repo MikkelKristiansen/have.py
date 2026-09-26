@@ -5,6 +5,16 @@ Format følger [Keep a Changelog](https://keepachangelog.com/da/1.0.0/).
 
 ## [Unreleased]
 
+### Ændret (september 2026)
+- **Data i git igen** — `data/` pushes til det private GitHub-repo
+  `MikkelKristiansen/haven-data`. `have gem-data` er genindført (nu i
+  `haven/gem_data.py`, uden `pull --rebase`, da kun x1 committer data).
+- **RPi5 afløst af apps-mk** — have-inbox og auto-publiceringen kører på
+  apps-mk: en timer hvert 10. minut i stedet for en `.path`-unit. De kørende
+  scripts og units ligger nu i `conf/apps-mk/`; de forældede RPi5-kopier
+  (`scripts/have-publicer.sh`, `conf/systemd/`) er slettet. `docs/sync.md`
+  beskriver den nye model.
+
 ### Ændret
 - **Sync-model forenklet til Synology Drive** — hele have-træet (kode, `data/`,
   `fotos/`) holdes nu i sync mellem X1 og RPi5 af Synology Drive (X1 → DS218,

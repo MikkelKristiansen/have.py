@@ -45,7 +45,7 @@ def kør_alt(lokal: bool = False) -> None:
     med fejlkode hvis noget gik galt). Data gemmes separat med 'have gem-data'.
 
     lokal=True læser inboxen direkte fra disk (--lokal) — bruges når have kører på
-    samme maskine som have-inbox (fx headless auto-import på RPi5)."""
+    samme maskine som have-inbox (fx headless auto-import på apps-mk)."""
     hent_inbox = ["have", "hent-inbox", "--skriv"] + (["--lokal"] if lokal else [])
     trin = [
         ("📥  Henter dagbogsindlæg fra inboxen", hent_inbox),
@@ -239,7 +239,7 @@ def main():
     _p_alt = subparsers.add_parser("alt", help="Kør hele arbejdsgangen: hent-inbox → deploy")
     _p_alt.add_argument("--lokal", action="store_true",
                         help="Læs inboxen lokalt fra disk i stedet for via SFTP "
-                             "(når have kører på samme maskine som have-inbox, fx RPi5)")
+                             "(når have kører på samme maskine som have-inbox, fx apps-mk)")
 
     # Subkommando: gem-data
     _p_gem = subparsers.add_parser("gem-data", help="Commit + push af havedata-repoet (data/)")

@@ -1,6 +1,6 @@
 """have hent-inbox — hent dagbogsindlæg fra have-inbox-webappen og behandl dem.
 
-have-inbox er en selvstændig Flask-app (på RPi5/YunoHost), hvor man fra telefonen
+have-inbox er en selvstændig Flask-app (på apps-mk), hvor man fra telefonen
 opretter dagbogsindlæg med foto. Indlæggene gemmes råt i en inbox-mappe på serveren:
 
     inbox/{dato}_{tid}/entry.yaml   + 01.jpg
@@ -479,7 +479,7 @@ def main():
                          "(uden flaget: dry-run der kun viser indholdet).")
     ap.add_argument("--lokal", action="store_true",
                     help="Læs inbox-mappen direkte fra disk (når have kører på samme "
-                         "maskine som have-inbox, fx RPi5) i stedet for via SFTP, og "
+                         "maskine som have-inbox, fx apps-mk) i stedet for via SFTP, og "
                          "ryd lokalt. Kræver ingen SSH-nøgle/agent — egnet til headless "
                          "auto-import.")
     args = ap.parse_args()

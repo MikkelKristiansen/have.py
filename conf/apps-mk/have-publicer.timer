@@ -1,0 +1,16 @@
+[Unit]
+Description=Fej have-inboxen hvert 10. minut
+
+[Timer]
+# Erstatter path-unitten fra rpi5. Wrapperen springer straks over naar inboxen
+# er tom eller mountet nede, saa en koersel uden arbejde koster ingenting.
+# Der er ingen begivenheds-trigger at loope paa, og en timer der fyrer hvert
+# 10. minut kan aldrig ramme 5 starter paa 5 minutter.
+OnBootSec=3min
+OnUnitActiveSec=10min
+# Persistent er UDELADT med vilje: en misset koersel har intet at indhente,
+# da naeste koersel alligevel fejer hele inboxen.
+Unit=have-publicer.service
+
+[Install]
+WantedBy=timers.target
