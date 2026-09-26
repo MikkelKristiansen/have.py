@@ -49,8 +49,9 @@ maskiner bygger, og ellers opstår konflikt-filer.
   `have alt` henter inbox'en via SFTP og deployer.
 - **x1:** kør `have gem-data` en gang imellem, så data-historikken kommer offsite.
 - **apps-mk:** intet manuelt. `have-publicer.timer` fejer inboxen hvert 10.
-  minut og kører `have alt --lokal`. Opsætning og drift:
-  [`conf/apps-mk/README.md`](../conf/apps-mk/README.md).
+  minut og kører `have alt --lokal`. Scripts og systemd-units er versioneret
+  i have-inbox-repoet (`MikkelKristiansen/have_inbox`, mappen `deploy/`), og
+  dets README beskriver installation og drift.
 
 ## Flere skribenter på data
 

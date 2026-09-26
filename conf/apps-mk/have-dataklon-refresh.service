@@ -1,8 +1,0 @@
-[Unit]
-Description=Opdater have_inbox-appens dataklon fra have-traeet
-
-[Service]
-Type=oneshot
-User=apps
-Group=apps
-ExecStart=/srv/apps/bin/have-dataklon-refresh.sh

@@ -10,10 +10,10 @@ Format følger [Keep a Changelog](https://keepachangelog.com/da/1.0.0/).
   `MikkelKristiansen/haven-data`. `have gem-data` er genindført (nu i
   `haven/gem_data.py`, uden `pull --rebase`, da kun x1 committer data).
 - **RPi5 afløst af apps-mk** — have-inbox og auto-publiceringen kører på
-  apps-mk: en timer hvert 10. minut i stedet for en `.path`-unit. De kørende
-  scripts og units ligger nu i `conf/apps-mk/`; de forældede RPi5-kopier
-  (`scripts/have-publicer.sh`, `conf/systemd/`) er slettet. `docs/sync.md`
-  beskriver den nye model.
+  apps-mk: en timer hvert 10. minut i stedet for en `.path`-unit. Scripts og
+  units er versioneret i have-inbox-repoet (`deploy/`); de forældede
+  RPi5-kopier (`scripts/have-publicer.sh`, `conf/systemd/`) er slettet.
+  `docs/sync.md` beskriver den nye model.
 
 ### Ændret
 - **Sync-model forenklet til Synology Drive** — hele have-træet (kode, `data/`,
