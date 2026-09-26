@@ -282,6 +282,12 @@ def nyt_område():
 
 # ── Nyt år ────────────────────────────────────────────────────────────────────
 
+# Nøgler i en årsfil, der beskriver det gamle år og ikke skal med i kopien.
+# temperatur: skrevet af 'have hent-vejr', som springer måneder over, der
+# allerede har data — et kopieret 2026-vejr ville aldrig blive erstattet.
+_KUN_DET_GAMLE_ÅR = ("temperatur",)
+
+
 def nyt_år(nyt_år_num: int):
     """Klargør data/<nyt_år>/ og fotos/entries/<nyt_år>/ til den kommende sæson."""
     import shutil
@@ -297,7 +303,14 @@ def nyt_år(nyt_år_num: int):
         print(f"❌ Ingen tidligere år-mappe fundet i {data_rod}/ at kopiere fra.")
         sys.exit(1)
     fra_mappe = data_rod / str(tidligere_år[0])
-    til_mappe = f"data/{nyt_år_num}"
+    # Absolut, ligesom fra_mappe — ellers havner det nye år i den mappe,
+    # man tilfældigvis står i, når kommandoen køres.
+    til_mappe = data_rod / str(nyt_år_num)
+
+    # Tjek før spørgsmålet: det nytter ikke at svare ja til noget, der ikke kan lade sig gøre.
+    if os.path.exists(til_mappe):
+        print(f"❌ {til_mappe} findes allerede.")
+        sys.exit(1)
 
     import questionary
     print(f"\nDette vil oprette {til_mappe}/ ved at kopiere alle filer fra {fra_mappe}/")
@@ -305,13 +318,6 @@ def nyt_år(nyt_år_num: int):
     if not questionary.confirm("Er du sikker?", default=False).ask():
         print("Afbrudt.")
         sys.exit(0)
-
-    if not os.path.isdir(fra_mappe):
-        print(f"❌ {fra_mappe} findes ikke.")
-        sys.exit(1)
-    if os.path.exists(til_mappe):
-        print(f"❌ {til_mappe} findes allerede.")
-        sys.exit(1)
 
     os.makedirs(til_mappe)
 
@@ -335,6 +341,8 @@ def nyt_år(nyt_år_num: int):
             data["meta"]["år"] = nyt_år_num
             for felt, standard in _META_FELTER_DEFAULT.items():
                 data["meta"].setdefault(felt, standard)
+            for felt in _KUN_DET_GAMLE_ÅR:
+                data.pop(felt, None)
             with open(mål, "w", encoding="utf-8") as f:
                 ryaml.dump(data, f)
         kopierede.append(fil)
@@ -347,7 +355,7 @@ def nyt_år(nyt_år_num: int):
     print(f"  📄 entries.yaml oprettet (tom)")
 
     # Opret fotos-mappe
-    fotos_mappe = os.path.join("fotos", "entries", str(nyt_år_num))
+    fotos_mappe = FOTOS_MAPPE / "entries" / str(nyt_år_num)
     os.makedirs(fotos_mappe, exist_ok=True)
     print(f"  📁 {fotos_mappe}/ oprettet")
 
