@@ -29,9 +29,10 @@ from .indlaes import byg_plante_db, _find_yaml_filer
 from .validering import check, opdater_schema_plante_ids, opdater_schema_planter
 from .byg import generer_alle
 from .deploy import upload, upload_ftp
+from .nyt_aar import nyt_år
 from .vejr import hent_vejr
 from .wizards import (
-    init_projekt, nyt_område, nyt_år, ny_entry, ret_entry, ny_plante, ret_i_plante_yaml,
+    init_projekt, nyt_område, ny_entry, ret_entry, ny_plante, ret_i_plante_yaml,
     ret_foto, nyt_bed, plant_en_plante, riv_en_plante_op, ret_en_plante, ret_bed,
     hons_ny_høne, hons_ny_obs, wizard_ny_frø,
 )

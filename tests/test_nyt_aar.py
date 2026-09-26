@@ -24,7 +24,7 @@ _KØR_NYT_ÅR = textwrap.dedent("""
         def ask(self): return True
     questionary.confirm = lambda *a, **k: _Ja()
     questionary.press_any_key_to_continue = lambda *a, **k: _Ja()
-    from haven.wizards import nyt_år
+    from haven.nyt_aar import nyt_år
     nyt_år(int(sys.argv[1]))
 """)
 

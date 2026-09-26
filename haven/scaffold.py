@@ -2,7 +2,7 @@
 
 Selvstændigt modul (ingen haven-afhængigheder) i cli-opdelingen (se
 briefs/cli-opdeling.md, fase 5). De lange init-skabeloner og _lav_*-hjælpere
-bruges af wizards.py (init_projekt, nyt_område, nyt_år).
+bruges af wizards.py (init_projekt, nyt_område) og nyt_aar.py (nyt_år).
 """
 
 __all__ = [
