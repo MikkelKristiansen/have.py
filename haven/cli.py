@@ -29,6 +29,7 @@ from .indlaes import byg_plante_db, _find_yaml_filer
 from .validering import check, opdater_schema_plante_ids, opdater_schema_planter
 from .byg import generer_alle
 from .deploy import upload, upload_ftp
+from .gem_data import gem_data
 from .nyt_aar import nyt_år
 from .vejr import hent_vejr
 from .wizards import (
@@ -41,7 +42,7 @@ from .wizards import (
 def kør_alt(lokal: bool = False) -> None:
     """Kør hele den daglige arbejdsgang i rækkefølge: hent nye indlæg fra inboxen
     og byg + deploy sitet. Et fejlende trin stopper ikke de øvrige (afslutter dog
-    med fejlkode hvis noget gik galt). Data sikres via Synology Drive — ikke git.
+    med fejlkode hvis noget gik galt). Data gemmes separat med 'have gem-data'.
 
     lokal=True læser inboxen direkte fra disk (--lokal) — bruges når have kører på
     samme maskine som have-inbox (fx headless auto-import på RPi5)."""
@@ -117,6 +118,7 @@ Kommandoer:
     check               Validér planter.yaml og krydsreferencér mod bede
     deploy              Generer alle sider og upload til server
     alt                 Kør hele arbejdsgangen: hent-inbox → deploy
+    gem-data            Commit + push af havedata-repoet (data/ → GitHub)
 
 Kør 'have <kommando> --help' for detaljer om en enkelt kommando.
 
@@ -239,6 +241,11 @@ def main():
                         help="Læs inboxen lokalt fra disk i stedet for via SFTP "
                              "(når have kører på samme maskine som have-inbox, fx RPi5)")
 
+    # Subkommando: gem-data
+    _p_gem = subparsers.add_parser("gem-data", help="Commit + push af havedata-repoet (data/)")
+    _p_gem.add_argument("besked", nargs="?", metavar="BESKED",
+                        help="Valgfri commit-besked (standard: 'opdater havedata <dato>')")
+
     # Subkommando: hent-vejr
     hent_vejr_parser = subparsers.add_parser("hent-vejr", help="Hent historisk vejrdata fra Open-Meteo og skriv til almanak.yaml")
     hent_vejr_parser.add_argument("--år", type=int, default=datetime.date.today().year,
@@ -336,6 +343,10 @@ def main():
 
     if args.kommando == "alt":
         kør_alt(lokal=args.lokal)
+        sys.exit(0)
+
+    if args.kommando == "gem-data":
+        gem_data(args.besked)
         sys.exit(0)
 
     if args.kommando == "hent-vejr":
