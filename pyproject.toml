@@ -50,7 +50,7 @@ include = ["haven*"]
 dev = ["pytest>=8.0"]
 
 [tool.setuptools.package-data]
-haven = ["templates/*.html", "static/*.css"]
+haven = ["templates/*.html", "static/*.css", "static/*.png"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

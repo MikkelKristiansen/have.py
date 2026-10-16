@@ -6,7 +6,7 @@ Format følger [Keep a Changelog](https://keepachangelog.com/da/1.0.0/).
 ## [Unreleased]
 
 ### Tilføjet (oktober 2026)
-- **Favicon** — 🌿 som inline SVG i `base.html`, så fanerne ikke er tomme.
+- **Favicon** — 🌿 som `static/favicon.png` (64×64, tegnet fra Noto Color Emoji), kopieres af `byg.py` til årsmappen og roden. PNG og ikke SVG, fordi Falkon ikke viser SVG-favicons.
 
 ### Ændret (september 2026)
 - **Data i git igen** — `data/` pushes til det private GitHub-repo

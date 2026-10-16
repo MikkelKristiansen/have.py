@@ -322,6 +322,20 @@ def generer_alle(yaml_filer=None) -> list:
         skriv_hvis_ændret(css_rod, css_tekst)
         os.chmod(css_rod, 0o644)
 
+    # Favicon som PNG — Falkon viser ikke SVG-favicons. Binær fil, så den
+    # kopieres med shutil i stedet for skriv_hvis_ændret (som er til tekst).
+    # Samme to steder som CSS'en: årsmappen og roden.
+    _lokal_ikon = Path.cwd() / "static" / "favicon.png"
+    ikon_kilde = _lokal_ikon if _lokal_ikon.exists() else Path(__file__).parent / "static" / "favicon.png"
+    if ikon_kilde.exists():
+        ikon_data = ikon_kilde.read_bytes()
+        for ikon_dest in (Path(OUT_MAPPE) / "favicon.png", Path(OUT_MAPPE).parent / "favicon.png"):
+            if not ikon_dest.exists() or ikon_dest.read_bytes() != ikon_data:
+                ikon_dest.write_bytes(ikon_data)
+                os.chmod(ikon_dest, 0o644)
+                print(f"✅ Favicon kopieret: {ikon_dest}")
+        upload_filer.append((str(Path(OUT_MAPPE) / "favicon.png"), "favicon.png"))
+
     _lokal_js = Path.cwd() / "static" / "almanak-filter.js"
     js_kilde = str(_lokal_js if _lokal_js.exists() else Path(__file__).parent / "static" / "almanak-filter.js")
     if os.path.exists(js_kilde):
