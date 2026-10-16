@@ -5,6 +5,9 @@ Format følger [Keep a Changelog](https://keepachangelog.com/da/1.0.0/).
 
 ## [Unreleased]
 
+### Tilføjet (oktober 2026)
+- **Favicon** — 🌿 som inline SVG i `base.html`, så fanerne ikke er tomme.
+
 ### Ændret (september 2026)
 - **Data i git igen** — `data/` pushes til det private GitHub-repo
   `MikkelKristiansen/haven-data`. `have gem-data` er genindført (nu i
