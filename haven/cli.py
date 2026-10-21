@@ -118,7 +118,7 @@ Kommandoer:
     check               Validér planter.yaml og krydsreferencér mod bede
     deploy              Generer alle sider og upload til server
     alt                 Kør hele arbejdsgangen: hent-inbox → deploy
-    gem-data            Commit + push af havedata-repoet (data/ → GitHub)
+    gem-data            Commit + push af havedata-repoet (data/ → origin)
 
 Kør 'have <kommando> --help' for detaljer om en enkelt kommando.
 

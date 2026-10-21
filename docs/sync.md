@@ -35,9 +35,11 @@ maskiner bygger, og ellers opstår konflikt-filer.
 
 ## Versionering
 
-- **Kode:** GitHub, offentligt repo `MikkelKristiansen/have.py`.
-- **Data:** `data/` er sit eget git-repo med remote i det **private** repo
-  `MikkelKristiansen/haven-data`. Gem med `have gem-data [besked]` på x1
+- **Kode:** egen git-server, spejlet til det offentlige GitHub-repo
+  `MikkelKristiansen/have.py`. Push til egen server; GitHub opdateres af
+  spejlet og må ikke pushes til direkte.
+- **Data:** `data/` er sit eget, **private** git-repo, med samme model (spejl:
+  `MikkelKristiansen/haven-data`). Gem med `have gem-data [besked]` på x1
   (add + commit + push). Nye indlæg, som apps-mk har importeret, kommer med
   ved næste `gem-data`.
 - **Fotos:** ikke i git (binære/store). Sikres af Drive-versioner på DS218 og

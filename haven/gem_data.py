@@ -1,6 +1,6 @@
 """haven.gem_data — `have gem-data`: commit + push af havedata-repoet (data/).
 
-data/ er et selvstændigt, privat git-repo (remote på GitHub), adskilt fra
+data/ er et selvstændigt, privat git-repo (pusher til sin egen origin), adskilt fra
 kode-repoet. Synology Drive synker ikke prikfiler, så data/.git findes kun på
 den maskine, der har klonet det (x1) — kun dér giver kommandoen mening.
 
