@@ -19,6 +19,8 @@ uv.lock
 
 # === Genereret output ===
 out/
+# have gennemgang vejr: normalåret fra Open-Meteo (cache, ikke data)
+.cache/
 
 # === Build-artefakter ===
 haven-starter-*.tar.gz

@@ -30,6 +30,7 @@ from .validering import check, opdater_schema_plante_ids, opdater_schema_planter
 from .byg import generer_alle
 from .deploy import upload, upload_ftp
 from .gem_data import gem_data
+from .gennemgang import kommando as gennemgang
 from .nyt_aar import nyt_år
 from .vejr import hent_vejr
 from .wizards import (
@@ -87,6 +88,7 @@ Kommandoer:
     init                Sæt aktuelle mappe op som haveprojekt
     område              Opret nyt havområde i aktuelle projekt
     nyt-år              Klargør ny sæson (fx: have nyt-år 2027)
+    gennemgang          Årsgennemgang: status, opret, vis <navn>, vejr
 
   Plantekatalog
     ny-plante           Opret ny plante i planter.yaml
@@ -176,6 +178,7 @@ def main():
     # Subkommando: nyt-år
     nyt_år_parser = subparsers.add_parser("nyt-år", help="Klargør ny sæson (fx: have nyt-år 2027)")
     nyt_år_parser.add_argument("år", type=int, help="Det nye år (fx 2027)")
+    gennemgang.tilføj_parser(subparsers)
 
     # Subkommando: ny-plante
     subparsers.add_parser("ny-plante", help="Opret ny plante i planter.yaml (interaktiv wizard)")
@@ -281,6 +284,10 @@ def main():
     if args.kommando == "check":
         check(yaml_filer, strict=getattr(args, "strict", False),
               farver=getattr(args, "farver", False))
+        sys.exit(0)
+
+    if args.kommando == "gennemgang":
+        gennemgang.kør(args)
         sys.exit(0)
 
     if args.kommando == "nyt-år":
