@@ -94,3 +94,57 @@ def test_vis_ukendt_navn_fejler(tmp_path):
     rod, env, år = _projekt(tmp_path)
     ud = _have(rod, env, "vis", "findes-ikke", forventet=1)
     assert "hverken et bed eller en sort" in ud
+
+
+def test_dom_ukendt_sort_fejler(tmp_path):
+    rod, env, år = _projekt(tmp_path)
+    ud = _have(rod, env, "dom", "findes-ikke", forventet=1)
+    assert "ikke en sort" in ud
+
+
+_SKABELON = (
+    "---\n"
+    "plante_id: hvidloeg\n"
+    "dom:              # gentag | skift-sort | drop | flyt\n"
+    "                  # flerårige: behold | beskær | forny | fjern\n"
+    "erstat_med:       # plante_id — kun ved skift-sort\n"
+    "skadedyr: []      # id'er fra skadedyr.yaml\n"
+    "køb: []\n"
+    "---\n\n"
+    "# Hvidløg 2026\n\n"
+    "dom: dette er min tekst, ikke frontmatter\n"
+)
+
+
+def test_sæt_felter_rører_kun_feltet(tmp_path):
+    """sæt_felter er ren filbehandling, så den testes i processen."""
+    from haven.gennemgang.filer import læs, sæt_felter
+    sti = tmp_path / "hvidloeg.md"
+    sti.write_text(_SKABELON, encoding="utf-8")
+
+    sæt_felter(sti, {"dom": "skift-sort", "erstat_med": "hvidloeg-thermidrome"})
+
+    fm, tekst = læs(sti)
+    assert fm["dom"] == "skift-sort"
+    assert fm["erstat_med"] == "hvidloeg-thermidrome"
+    assert fm["skadedyr"] == [] and fm["køb"] == []
+    ny = sti.read_text(encoding="utf-8")
+    assert "dom: skift-sort   # gentag | skift-sort | drop | flyt\n" in ny
+    assert "# flerårige: behold" in ny
+    assert tekst == _SKABELON.split("---\n", 2)[2]   # teksten er urørt
+
+    # Ny dom rydder erstat_med igen.
+    sæt_felter(sti, {"dom": "gentag", "erstat_med": None})
+    fm, _ = læs(sti)
+    assert fm["dom"] == "gentag" and fm["erstat_med"] is None
+    assert "erstat_med:       # plante_id" in sti.read_text(encoding="utf-8")
+
+
+def test_sæt_felter_tilføjer_manglende_felt(tmp_path):
+    from haven.gennemgang.filer import læs, sæt_felter
+    sti = tmp_path / "x.md"
+    sti.write_text("---\nplante_id: x\n---\nTekst\n", encoding="utf-8")
+    sæt_felter(sti, {"dom": "drop"})
+    fm, tekst = læs(sti)
+    assert fm == {"plante_id": "x", "dom": "drop"}
+    assert tekst == "Tekst\n"

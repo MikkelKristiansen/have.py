@@ -6,7 +6,8 @@ entries/sektioner/*.md. Frontmatteren er det, maskinen skal kunne læse
 
 Skabelonerne skrives som tekst og ikke med yaml.dump, så kommentarerne med
 de gyldige værdier kommer med. Der overskrives ALDRIG en eksisterende fil —
-det er Mikkels tekst.
+det er Mikkels tekst. Den eneste rettelse er sæt_felter(), som skifter
+enkelte frontmatter-linjer ud ('have gennemgang dom') og lader resten stå.
 """
 
 import re
@@ -18,7 +19,7 @@ from .fakta import Område, Bed
 from .stier import ERFARINGER_FIL, bed_fil, sort_fil
 
 __all__ = ["DOMME_ETÅRIGE", "DOMME_FLERÅRIGE", "GYLDIGE_DOMME",
-           "læs", "har_tekst", "opret_bed", "opret_sort", "opret_erfaringer",
+           "læs", "har_tekst", "sæt_felter", "opret_bed", "opret_sort", "opret_erfaringer",
            "erfaringer_har_år", "erfaringer_skrevet"]
 
 DOMME_ETÅRIGE   = ("gentag", "skift-sort", "drop", "flyt")
@@ -102,6 +103,52 @@ def opret_sort(år: int, plante_id: str, plante: dict | None) -> bool:
         "## Næste år\n"
     )
     return _skriv_ny(sort_fil(år, plante_id), indhold)
+
+
+# Kolonnen, skabelonernes kommentarer står i.
+_KOMMENTAR_KOLONNE = 18
+
+
+def _ny_linje(gammel: str, nøgle: str, værdi: str) -> str:
+    """'dom:     # gentag | …' → 'dom: gentag  # gentag | …'. Kommentaren
+    beholdes og rykkes til skabelonens kolonne (eller lige efter værdien)."""
+    start = f"{nøgle}: {værdi}" if værdi else f"{nøgle}:"
+    kommentar = re.search(r"\s(#.*)$", gammel)   # YAML-kommentar: '#' efter mellemrum
+    if not kommentar:
+        return start
+    return start.ljust(_KOMMENTAR_KOLONNE - 1) + " " + kommentar.group(1)
+
+
+def sæt_felter(sti: Path, felter: dict[str, str | None]) -> None:
+    """Sæt værdien af enkelte frontmatter-felter, fx {"dom": "gentag"}.
+
+    Kun linjen 'nøgle: …' i frontmatteren skiftes ud; kommentarer, andre
+    felter og al tekst under frontmatteren røres ikke. Derfor skrives der
+    linje for linje og ikke med yaml.dump. None eller "" tømmer feltet.
+    Et felt, der mangler, tilføjes nederst i frontmatteren.
+    """
+    linjer = sti.read_text(encoding="utf-8").split("\n")
+    if not linjer or linjer[0] != "---" or "---" not in linjer[1:]:
+        raise ValueError(f"{sti.name} har ingen frontmatter")
+    slut = linjer.index("---", 1)
+
+    for nøgle, værdi in felter.items():
+        værdi = værdi or ""
+        for i in range(1, slut):
+            if re.match(rf"{re.escape(nøgle)}\s*:", linjer[i]):
+                linjer[i] = _ny_linje(linjer[i], nøgle, værdi)
+                break
+        else:
+            linjer.insert(slut, _ny_linje("", nøgle, værdi))
+            slut += 1
+
+    # Tjek, at resultatet stadig er gyldig YAML med de rigtige værdier,
+    # før filen skrives — ellers står Mikkels fil tilbage i stykker.
+    fm = yaml.safe_load("\n".join(linjer[1:slut])) or {}
+    for nøgle, værdi in felter.items():
+        if (fm.get(nøgle) or None) != (værdi or None):
+            raise ValueError(f"{sti.name}: {nøgle} blev ikke sat rigtigt")
+    sti.write_text("\n".join(linjer), encoding="utf-8")
 
 
 def opret_erfaringer(år: int) -> bool:

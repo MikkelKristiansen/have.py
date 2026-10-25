@@ -10,7 +10,8 @@ from .filer import læs
 from .status import Status, Punkt, FÆRDIG, I_GANG, MANGLER
 from .stier import sort_fil, ERFARINGER_FIL
 
-__all__ = ["vis_status", "vis_oprettet", "vis_bed", "vis_sort", "vis_vejr"]
+__all__ = ["vis_status", "vis_oprettet", "vis_dom_hoved", "vis_dom_gemt", "vis_dom_besked",
+           "vis_bed", "vis_sort", "vis_vejr"]
 
 _IKON = {FÆRDIG: "✅", MANGLER: "·", I_GANG: "✏️ "}
 
@@ -73,6 +74,26 @@ def vis_oprettet(oprettede: list[str]) -> None:
     print(f"✅ {len(oprettede)} fil(er) oprettet:")
     for navn in oprettede:
         print(f"  + {navn}")
+
+
+def vis_dom_hoved(år: int, plante_id: str, nr: int, i_alt: int, alle_indlæg: list) -> None:
+    """Kort hoved før spørgsmålet i 'have gennemgang dom'. Hele billedet: 'vis'."""
+    tæller = f"   ({nr}/{i_alt})" if i_alt > 1 else ""
+    print(f"\n🌿 {_plantenavn(plante_id)} — {år}{tæller}")
+    dele = [f"Dagbog: {len(fakta.indlæg_for_sort(alle_indlæg, plante_id))} indlæg"]
+    sidste = sort_fil(år - 1, plante_id)
+    if sidste.exists():
+        dele.append(f"sidste år: {læs(sidste)[0].get('dom') or '—'}")
+    print("   " + " · ".join(dele))
+
+
+def vis_dom_gemt(navn: str, dom: str, erstat_med: str | None) -> None:
+    ekstra = f" → {erstat_med}" if erstat_med else ""
+    print(f"✓ {navn}: {dom}{ekstra}")
+
+
+def vis_dom_besked(tekst: str) -> None:
+    print(tekst)
 
 
 def vis_bed(år: int, område: fakta.Område, bed: fakta.Bed | None, alle_indlæg: list) -> None:

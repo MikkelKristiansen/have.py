@@ -6,6 +6,7 @@ bor her, så cli.py ikke vokser med hver ny underkommando.
   have gennemgang [--år N]            status: hvad er gjort, hvad mangler
   have gennemgang opret [--år N]      opret manglende skabeloner (overskriver aldrig)
   have gennemgang vis NAVN [--år N]   fakta om et bed (filnavn) eller en sort (plante_id)
+  have gennemgang dom [ID] [--år N]   vælg dom for sorterne med piletasterne
   have gennemgang vejr [--år N]       årets vejr mod normalåret
 """
 
@@ -14,7 +15,7 @@ import sys
 
 from ..kontekst import AKTIVT_ÅR, PLANTE_DB
 from ..indlaes import byg_plante_db, byg_skadedyr_db
-from . import fakta, filer, status, vejr_normal, visning
+from . import fakta, filer, spoerg, status, vejr_normal, visning
 from .stier import DATA_ROD, bed_fil
 
 __all__ = ["tilføj_parser", "kør"]
@@ -34,6 +35,9 @@ def tilføj_parser(subparsers) -> None:
     vis = under.add_parser("vis", parents=[fælles],
                            help="Vis fakta om et bed eller en sort")
     vis.add_argument("navn", help="bedfilens navn (fx højbedshaven-bed-1) eller et plante_id")
+    dom = under.add_parser("dom", parents=[fælles],
+                           help="Vælg dom for sorterne, der mangler en (eller for én sort)")
+    dom.add_argument("plante_id", nargs="?", help="kun denne sort (standard: alle uden dom)")
     under.add_parser("vejr", parents=[fælles], help="Årets vejr mod normalåret 1991–2020")
 
 
@@ -83,6 +87,9 @@ def kør(args) -> None:
         _opret(år)
     elif hvad == "vis":
         _vis(år, args.navn)
+    elif hvad == "dom":
+        if not spoerg.kør_dom(år, args.plante_id):
+            sys.exit(1)
     elif hvad == "vejr":
         visning.vis_vejr(år, vejr_normal.sammenlign(år))
     else:

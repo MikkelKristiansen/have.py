@@ -8,6 +8,7 @@ og ikke en wizard, der skal gøres færdig i ét hug.
 have gennemgang                 # status: hvad er gjort, hvad mangler, hvad er næste
 have gennemgang opret           # opret manglende filer (overskriver aldrig)
 have gennemgang vis <navn>      # fakta om et bed eller en sort
+have gennemgang dom [plante_id] # vælg dom med piletasterne (alle uden dom, eller én)
 have gennemgang vejr            # årets vejr mod normalåret 1991–2020
 ```
 
@@ -32,6 +33,12 @@ tekst under den:
 | `færdig` | bed | `true`, når bedet er gennemgået |
 | `skadedyr` | begge | id'er fra `data/skadedyr.yaml` |
 | `køb` | begge | ting, der skal købes: jord, net, materialer |
+
+`dom` og `erstat_med` behøver du ikke skrive i hånden. `have gennemgang dom`
+går gennem sorterne uden dom og viser en valgliste. Ved `skift-sort` får du
+autocomplete på `plante_id`. Kun de to linjer i frontmatteren ændres, og
+kommentarerne og din tekst bliver stående. Valget gemmes med det samme, så
+Ctrl-C mister intet. Med et `plante_id` kan du rette en enkelt sorts dom.
 
 ## Hvornår er noget færdigt?
 
