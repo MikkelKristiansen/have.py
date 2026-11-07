@@ -5,6 +5,9 @@ Format følger [Keep a Changelog](https://keepachangelog.com/da/1.0.0/).
 
 ## [Unreleased]
 
+### Tilføjet (november 2026)
+- **Bed på dagbogsindlæg** — valgfrit `bed_id:` i frontmatter (fx `drivhus-nord`). Sættes fra have-inbox' nye bed-dropdown og føres med af `have hent-inbox`. Bedets navn vises som pille på områdesiden og efter sektionen i almanakken ("Drivhuset · Det store drivhus — nord").
+
 ### Tilføjet (oktober 2026)
 - **Favicon** — 🌿 som `static/favicon.png` (64×64, tegnet fra Noto Color Emoji), kopieres af `byg.py` til årsmappen og roden. PNG og ikke SVG, fordi Falkon ikke viser SVG-favicons.
 

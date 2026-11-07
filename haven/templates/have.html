@@ -159,6 +159,7 @@
         <div class="alm-header">
           <span class="alm-dato">{{ entry.dato | dato_fmt }}</span>
           <h4 class="alm-titel">{{ entry.titel }}</h4>
+          {% if entry.bed_navn %}<span class="alm-kilde-pill">{{ entry.bed_navn }}</span>{% endif %}
           <div class="alm-tags">
             {% for navn in entry.plante_navne | default([]) %}
             <a class="alm-tag alm-tag-plante" href="{{ op_sti | default('../') }}søg.html?q={{ navn | urlencode }}">🌱 {{ navn }}</a>

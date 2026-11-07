@@ -142,6 +142,7 @@ def _læs_entry(mappe: Path):
         if isinstance(plante_id, str):
             plante_id = [plante_id]
         return {"kind": "dagbog", "dato": str(dato), "zone": str(zone),
+                "bed_id": str(data.get("bed_id") or ""),
                 "tekst": tekst, "plante_id": plante_id, "foto_kilde": foto_kilde}, None
 
     if typ == "hons":
@@ -445,13 +446,14 @@ def behandl(lokal: Path, skriv: bool) -> list[str]:
 
         if felter["kind"] == "dagbog":
             uddrag = felter["tekst"].splitlines()[0][:60]
-            print(f"  • [dagbog] {felter['dato']} / {felter['zone']} / "
+            sted = felter["zone"] + (f"/{felter['bed_id']}" if felter["bed_id"] else "")
+            print(f"  • [dagbog] {felter['dato']} / {sted} / "
                   f"{len(felter['plante_id'])} plante(r){flag}: {uddrag}")
             if skriv:
                 sti = opret_entry(
                     felter["dato"], felter["zone"], felter["tekst"],
                     plante_id=felter["plante_id"], foto_kilde=felter["foto_kilde"],
-                    _generer=False,
+                    bed_id=felter["bed_id"] or None, _generer=False,
                 )
                 print(f"      → {_rel(sti)}")
         else:  # hons

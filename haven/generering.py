@@ -95,12 +95,16 @@ def generer_html(yaml_sti, html_sti, env, alle_planter, nav_context=None,
                     pass
         # Indlæs entries fra markdown-mappe
         entries_mappe = os.path.join(_data_mappe, "entries", "sektioner")
+        bed_navne = {b["id"]: b.get("navn") or b["id"]
+                     for b in data.get("bede", []) if b.get("id")}
         for e in _les_entries_mappe(entries_mappe):
             if (e.get("zone") or e.get("område_id", "")) != html_navn:
                 continue
             e_kopi = dict(e)
             if hasattr(e_kopi.get("dato"), "isoformat"):
                 e_kopi["dato"] = e_kopi["dato"].isoformat()
+            if e_kopi.get("bed_id"):
+                e_kopi["bed_navn"] = bed_navne.get(e_kopi["bed_id"], e_kopi["bed_id"])
             # Berig med plantenavne (plante_id er allerede normaliseret til liste af _les_entries_mappe)
             e_kopi["plante_navne"] = [PLANTE_DB.get(p, {}).get("navn", p)
                                       for p in e_kopi.get("plante_id", []) if p]

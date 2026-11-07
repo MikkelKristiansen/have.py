@@ -277,6 +277,7 @@ Oprettes automatisk af `have ny-entry`.
 ---
 dato: 2026-04-26          # (påkrævet) ISO-dato
 zone: drivhus             # (påkrævet) matcher html_navn fra bed-YAML
+bed_id: drivhus-nord      # valgfri — et bed fra zonens bede:-liste; navnet vises på sitet
 plante_id: tomater-money-maker  # valgfri — én eller liste af plante-id'er
 foto: 2026-04-26-drivhus.jpg    # valgfri — filnavn i fotos/entries/{år}/
 ---

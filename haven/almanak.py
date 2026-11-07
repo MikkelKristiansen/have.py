@@ -37,13 +37,20 @@ def flet_almanakker(projekter_data, entries_fil=None):
     # Byg opslagsdict: html_navn -> titel
     # Indlæs fra meta.html_navn i bed-YAML'erne — filnavnet matcher ikke nødvendigvis html_navn
     # (fx har højbedshaven.yaml html_navn="hoejbede")
+    # Bednavne slås op på (html_navn, bed_id): bed-id'er som "bed-1" går igen
+    # i flere områder.
     område_titler: dict[str, str] = {}
+    bed_navne: dict[tuple[str, str], str] = {}
     for yaml_sti in YAML_FILER_DEFAULT:
         if os.path.exists(yaml_sti):
-            meta = load_yaml(yaml_sti).get("meta", {})
+            data = load_yaml(yaml_sti)
+            meta = data.get("meta", {})
             hn = meta.get("html_navn")
             if hn:
                 område_titler[hn] = meta.get("titel", hn)
+                for bed in data.get("bede") or []:
+                    if bed.get("id"):
+                        bed_navne[(hn, bed["id"])] = bed.get("navn") or bed["id"]
 
     for html_navn, alm_data in projekter_data:
         # Kilde-css-klasse baseret på html_navn
@@ -119,6 +126,8 @@ def flet_almanakker(projekter_data, entries_fil=None):
         e_kopi.setdefault("titel", "")
         e_kopi["kilde"]     = område_titler.get(oid, oid)
         e_kopi["css_kilde"] = f"kilde-{oid.replace('_','-')}"
+        if e_kopi.get("bed_id"):
+            e_kopi["bed_navn"] = bed_navne.get((oid, e_kopi["bed_id"]), e_kopi["bed_id"])
         # plante_id er allerede normaliseret til liste af _les_entries_mappe
         e_kopi["plante_navne"] = [PLANTE_DB.get(p, {}).get("navn", p)
                                   for p in e_kopi.get("plante_id", []) if p]

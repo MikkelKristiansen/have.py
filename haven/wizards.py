@@ -284,10 +284,11 @@ def nyt_område():
 
 def opret_entry(dato: str, zone: str, tekst: str,
                 plante_id=None, foto_kilde: str = None,
-                _generer: bool = True) -> str:
+                bed_id: str = None, _generer: bool = True) -> str:
     """Opretter en dagbogsentry som markdown-fil. Returnerer stien til filen.
 
     plante_id kan være en streng (enkelt plante) eller en liste af strenge.
+    bed_id (valgfrit) er et bed inden for zonen, fx 'drivhus-nord'.
     """
     import shutil
     entries_mappe = os.path.join(DATA_MAPPE, "entries", "sektioner")
@@ -333,6 +334,8 @@ def opret_entry(dato: str, zone: str, tekst: str,
         plante_ids = [p for p in (plante_id or []) if p]
 
     linjer = ["---", f"dato: {dato}", f"zone: {zone}"]
+    if bed_id:
+        linjer.append(f"bed_id: {bed_id}")
     if len(plante_ids) == 1:
         linjer.append(f"plante_id: {plante_ids[0]}")
     elif len(plante_ids) > 1:
